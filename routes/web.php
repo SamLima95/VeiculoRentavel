@@ -16,9 +16,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
     
     // Rotas do módulo de aluguel de veículos
-    Route::get('vehicles', function () {
-        return Inertia::render('vehicles');
-    })->name('vehicles');
+    Route::resource('vehicles', VehicleController::class);
+    Route::get('vehicles/check-plate', [VehicleController::class, 'checkPlateAvailability'])->name('vehicles.check-plate');
     
     Route::get('clients', function () {
         return Inertia::render('clients');

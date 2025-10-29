@@ -22,6 +22,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
     ];
 
     /**
@@ -45,5 +46,53 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Relacionamento: Um usuário pode ter várias reservas.
+     */
+    public function reservations()
+    {
+        return $this->hasMany(Reservation::class);
+    }
+
+    /**
+     * Relacionamento: Um usuário pode ter várias locações.
+     */
+    public function rentals()
+    {
+        return $this->hasMany(Rental::class);
+    }
+
+    /**
+     * Relacionamento: Um usuário pode ter várias manutenções registradas.
+     */
+    public function maintenances()
+    {
+        return $this->hasMany(Maintenance::class);
+    }
+
+    /**
+     * Relacionamento: Um usuário pode ter vários logs de auditoria.
+     */
+    public function auditLogs()
+    {
+        return $this->hasMany(AuditLog::class);
+    }
+
+    /**
+     * Verifica se o usuário é administrador.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Verifica se o usuário é funcionário.
+     */
+    public function isFuncionario(): bool
+    {
+        return $this->role === 'funcionario';
     }
 }
