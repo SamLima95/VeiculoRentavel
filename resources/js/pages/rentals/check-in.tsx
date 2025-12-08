@@ -44,7 +44,9 @@ type CheckInPageProps = {
 };
 
 export default function RentalCheckIn({ reservation }: CheckInPageProps) {
+    const rentalId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('rental_id') : '';
     const { data, setData, post, processing } = useForm({
+        rental_id: rentalId ?? '',
         checklist: {
             fr: false,
             tr: false,

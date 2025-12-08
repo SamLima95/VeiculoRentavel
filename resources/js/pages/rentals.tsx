@@ -251,12 +251,12 @@ export default function RentalsPage({ rentals, filters, stats }: RentalsPageProp
                                                         >
                                                             <KeyRound className="h-4 w-4" />
                                                         </button>
-                                                        <Link
-                                                            href={`/rentals/${rental.id}`}
-                                                            className="rounded-full p-1 hover:bg-slate-100"
-                                                        >
-                                                            <Eye className="h-4 w-4" />
-                                                        </Link>
+                                                    <Link
+                                                        href={`/rentals/${rental.id}`}
+                                                        className="rounded-full p-1 hover:bg-slate-100"
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                    </Link>
                                                     </div>
                                                 </TableCell>
                                             </TableRow>

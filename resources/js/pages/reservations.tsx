@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Search } from 'lucide-react';
-import { type ReactNode } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 
 type Reservation = {
     id: number;
@@ -62,6 +62,7 @@ export default function ReservationsPage({ reservations, filters, stats }: Reser
         search: filters?.search ?? '',
         status: filters?.status ?? 'all',
     });
+    const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
     const summary = {
         confirmed: stats?.confirmed_month ?? 0,
@@ -69,6 +70,15 @@ export default function ReservationsPage({ reservations, filters, stats }: Reser
         canceled: stats?.canceled ?? 0,
         occupancy: stats?.occupancy_rate ?? 0,
     };
+
+    const calendarEvents = useMemo(() => {
+        return (reservations?.data ?? []).map((reservation) => ({
+            id: reservation.id,
+            title: `${reservation.client_name} - ${reservation.vehicle}`,
+            period: `${reservation.start_date} - ${reservation.end_date}`,
+            status: reservation.status,
+        }));
+    }, [reservations?.data]);
 
     const applyFilters = () => {
         get('/reservations', {
@@ -109,20 +119,28 @@ export default function ReservationsPage({ reservations, filters, stats }: Reser
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <StatCard label="Reservas Confirmadas (mês)" value={summary.confirmed} />
+                        <StatCard label="Reservas Confirmadas (mes)" value={summary.confirmed} />
                         <StatCard label="Reservas Pendentes" value={summary.pending} />
                         <StatCard label="Cancelamentos" value={summary.canceled} />
-                        <StatCard label="Taxa de Ocupação" value={`${summary.occupancy}%`} />
+                        <StatCard label="Taxa de Ocupacao" value={`${summary.occupancy}%`} />
                     </div>
 
                     <Card className="border-slate-200 shadow-sm">
                         <CardContent className="space-y-4 p-4">
                             <div className="flex flex-wrap gap-2">
-                                <Button variant="secondary" className="h-9 rounded-md bg-slate-100 px-4 text-sm font-semibold text-slate-800">
-                                    Visualização em Lista
+                                <Button
+                                    variant={viewMode === 'list' ? 'secondary' : 'outline'}
+                                    className={`h-9 rounded-md px-4 text-sm font-semibold ${viewMode === 'list' ? 'bg-slate-100 text-slate-800' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                                    onClick={() => setViewMode('list')}
+                                >
+                                    Visualizacao em Lista
                                 </Button>
-                                <Button variant="outline" className="h-9 rounded-md border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                                    Visualização em Calendário
+                                <Button
+                                    variant={viewMode === 'calendar' ? 'secondary' : 'outline'}
+                                    className={`h-9 rounded-md px-4 text-sm font-semibold ${viewMode === 'calendar' ? 'bg-slate-100 text-slate-800' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                                    onClick={() => setViewMode('calendar')}
+                                >
+                                    Visualizacao em Calendario
                                 </Button>
                             </div>
 
@@ -131,7 +149,7 @@ export default function ReservationsPage({ reservations, filters, stats }: Reser
                                     <div className="relative w-full lg:max-w-md">
                                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                         <Input
-                                            placeholder="Buscar por cliente, veículo ou placa"
+                                            placeholder="Buscar por cliente, veiculo ou placa"
                                             className="h-10 pl-10"
                                             value={data.search}
                                             onChange={(e) => setData('search', e.target.value)}
@@ -176,77 +194,116 @@ export default function ReservationsPage({ reservations, filters, stats }: Reser
                                 </div>
                             </div>
 
-                            <div className="rounded-lg border border-slate-200 bg-white">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="bg-slate-50">
-                                            <TableHead>Cliente</TableHead>
-                                            <TableHead>Veículo</TableHead>
-                                            <TableHead>Período</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead className="text-right">Ações</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {reservations?.data?.map((reservation) => (
-                                            <TableRow key={reservation.id} className="hover:bg-slate-50">
-                                                <TableCell className="font-semibold text-slate-900">
-                                                    {reservation.client_name}
-                                                </TableCell>
-                                                <TableCell className="text-slate-700">
-                                                    {reservation.vehicle}
-                                                    {reservation.plate ? ` (${reservation.plate})` : ''}
-                                                </TableCell>
-                                                <TableCell className="text-slate-700">
-                                                    {reservation.start_date} → {reservation.end_date}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span
-                                                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                                                            statusChip[reservation.status] ??
-                                                            'bg-slate-100 text-slate-700'
-                                                        }`}
+                            {viewMode === 'list' ? (
+                                <>
+                                    <div className="rounded-lg border border-slate-200 bg-white">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className="bg-slate-50">
+                                                    <TableHead>Cliente</TableHead>
+                                                    <TableHead>Veiculo</TableHead>
+                                                    <TableHead>Periodo</TableHead>
+                                                    <TableHead>Status</TableHead>
+                                                    <TableHead className="text-right">Acoes</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {(reservations?.data ?? []).map((reservation) => (
+                                                    <TableRow key={reservation.id} className="hover:bg-slate-50">
+                                                        <TableCell className="font-semibold text-slate-900">
+                                                            {reservation.client_name}
+                                                        </TableCell>
+                                                        <TableCell className="text-slate-700">
+                                                            {reservation.vehicle}
+                                                            {reservation.plate ? ` (${reservation.plate})` : ''}
+                                                        </TableCell>
+                                                        <TableCell className="text-slate-700">
+                                                            {reservation.start_date} - {reservation.end_date}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <span
+                                                                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                                                                    statusChip[reservation.status] ??
+                                                                    'bg-slate-100 text-slate-700'
+                                                                }`}
+                                                            >
+                                                                {statusLabel[reservation.status] ?? reservation.status}
+                                                            </span>
+                                                        </TableCell>
+                                                        <TableCell className="text-right text-sm font-semibold text-[#2f62de]">
+                                                            <Link href={`/reservations/${reservation.id}`}>Ver detalhes</Link>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+
+                                                {(reservations?.data ?? []).length === 0 && (
+                                                    <TableRow>
+                                                        <TableCell colSpan={5} className="py-6 text-center text-slate-600">
+                                                            Nenhuma reserva encontrada.
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+
+                                    <div className="flex items-center justify-between border-t border-slate-200 px-2 py-2 text-sm text-slate-600">
+                                        <div>
+                                            Mostrando {reservations?.from ?? 0}-{reservations?.to ?? 0} de {reservations?.total ?? 0} reservas
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Link
+                                                className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+                                                href={findLink(reservations?.links, 'Anterior') ?? '#'}
+                                            >
+                                                Anterior
+                                            </Link>
+                                            <Link
+                                                className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+                                                href={findLink(reservations?.links, 'Proximo') ?? '#'}
+                                            >
+                                                Proximo
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                        {calendarEvents.map((event) => (
+                                            <div
+                                                key={event.id}
+                                                className="rounded-lg border border-slate-100 bg-slate-50 p-3 shadow-sm"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-sm font-semibold text-slate-900">
+                                                        {event.title}
+                                                    </p>
+                                                    <Badge
+                                                        className={`${statusChip[event.status] ?? 'bg-slate-100 text-slate-700'} px-2 py-1 text-[12px] font-medium`}
                                                     >
-                                                        {statusLabel[reservation.status] ?? reservation.status}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell className="text-right text-sm font-semibold text-[#2f62de]">
-                                                    <Link href={`/reservations/${reservation.id}`}>Ver</Link>
-                                                </TableCell>
-                                            </TableRow>
+                                                        {statusLabel[event.status] ?? event.status}
+                                                    </Badge>
+                                                </div>
+                                                <p className="mt-2 text-sm text-slate-600">{event.period}</p>
+                                                <div className="mt-3 flex justify-end">
+                                                    <Link
+                                                        href={`/reservations/${event.id}`}
+                                                        className="text-sm font-semibold text-[#1f56d8] hover:underline"
+                                                    >
+                                                        Ver detalhes
+                                                    </Link>
+                                                </div>
+                                            </div>
                                         ))}
-
-                                        {reservations?.data?.length === 0 && (
-                                            <TableRow>
-                                                <TableCell colSpan={5} className="py-6 text-center text-slate-600">
-                                                    Nenhuma reserva encontrada.
-                                                </TableCell>
-                                            </TableRow>
+                                        {calendarEvents.length === 0 && (
+                                            <div className="col-span-full rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-600">
+                                                Nenhum evento no periodo selecionado.
+                                            </div>
                                         )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-
-                            <div className="flex items-center justify-between border-t border-slate-200 px-2 py-2 text-sm text-slate-600">
-                                <div>
-                                    Mostrando {reservations?.from ?? 0}-{reservations?.to ?? 0} de{' '}
-                                    {reservations?.total ?? 0} reservas
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <Link
-                                        className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50"
-                                        href={findLink(reservations?.links, 'Anterior') ?? '#'}
-                                    >
-                                        Anterior
-                                    </Link>
-                                    <Link
-                                        className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50"
-                                        href={findLink(reservations?.links, 'Próximo') ?? '#'}
-                                    >
-                                        Próximo
-                                    </Link>
-                                </div>
-                            </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>

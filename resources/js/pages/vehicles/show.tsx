@@ -1,6 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import {
     AlertCircle,
     AlertTriangle,
@@ -107,6 +107,8 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
         { title: `${vehicle.brand ?? ''} ${vehicle.model ?? ''}`.trim(), href: `/vehicles/${vehicle.id}` },
     ];
 
+    const { post, processing } = useForm({});
+
     const timelineItems = useMemo<TimelineItem[]>(() => {
         const normalizeDate = (item: RelatedItem) =>
             item.start_date || item.startDate || item.created_at || item.updated_at || '';
@@ -157,6 +159,11 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
         });
     }, [vehicle.fines, vehicle.maintenances, vehicle.rentals, vehicle.reservations]);
 
+    const handleInactivate = () => {
+        if (!window.confirm('Inativar veiculo?')) return;
+        post(`/vehicles/${vehicle.id}/inactivate`, { preserveScroll: true, preserveState: true });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Veículo - ${vehicle.brand ?? ''} ${vehicle.model ?? ''}`} />
@@ -177,7 +184,7 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
                                     variant="secondary"
                                     className="h-9 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                                 >
-                                    <Link href={`/vehicles/${vehicle.id}/edit`}>Editar veículo</Link>
+                                    <Link href={`/vehicles/${vehicle.id}/edit`}>Editar veiculo</Link>
                                 </Button>
                                 <Button
                                     variant="secondary"
@@ -185,8 +192,21 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
                                 >
                                     Criar reserva
                                 </Button>
-                                <Button className="h-9 rounded-md bg-[#1f56d8] px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(33,101,214,0.35)] transition-colors hover:bg-[#1c4cc5]">
-                                    Registrar manutenção
+                                <Button
+                                    asChild
+                                    className="h-9 rounded-md bg-[#1f56d8] px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(33,101,214,0.35)] transition-colors hover:bg-[#1c4cc5]"
+                                >
+                                    <Link href={`/vehicles/maintenance/create?vehicle_id=${vehicle.id}`}>
+                                        Registrar manutencao
+                                    </Link>
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    className="h-9 rounded-md px-4 text-sm font-semibold"
+                                    onClick={handleInactivate}
+                                    disabled={processing}
+                                >
+                                    Inativar veiculo
                                 </Button>
                             </div>
                         </div>

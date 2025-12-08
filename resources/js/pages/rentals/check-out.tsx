@@ -31,7 +31,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function RentalCheckOut() {
+    const rentalId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('rental_id') : '';
     const { data, setData, post, processing } = useForm({
+        rental_id: rentalId ?? '',
         fuel_start: '3/4',
         fuel_end: '1/2',
         mileage_start: '15480',
