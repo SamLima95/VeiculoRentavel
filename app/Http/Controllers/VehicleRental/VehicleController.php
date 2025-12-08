@@ -48,10 +48,18 @@ class VehicleController extends Controller
 
         $vehicles = $query->paginate(15)->withQueryString();
 
-        return Inertia::render('vehicles', [
+        return Inertia::render('vehicles/index', [
             'vehicles' => $vehicles,
             'filters' => $request->only(['search', 'status', 'category', 'sort_by', 'sort_order']),
         ]);
+    }
+
+    /**
+     * Exibe o formulário de criação.
+     */
+    public function create(): Response
+    {
+        return Inertia::render('vehicles/create');
     }
 
     /**
@@ -88,7 +96,17 @@ class VehicleController extends Controller
             },
         ]);
 
-        return Inertia::render('VehicleRental/VehicleShow', [
+        return Inertia::render('vehicles/show', [
+            'vehicle' => $vehicle,
+        ]);
+    }
+
+    /**
+     * Exibe o formulário de edição.
+     */
+    public function edit(Vehicle $vehicle): Response
+    {
+        return Inertia::render('vehicles/create', [
             'vehicle' => $vehicle,
         ]);
     }
