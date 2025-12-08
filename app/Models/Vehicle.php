@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Enums\VehicleCategory;
+use App\Enums\VehicleStatus;
 
 class Vehicle extends Model
 {
@@ -24,6 +26,14 @@ class Vehicle extends Model
         'mileage',
         'category',
         'status',
+        'renavam',
+        'licensing_date',
+        'ipva_date',
+        'insurance_name',
+        'policy_number',
+        'insurance_expiry',
+        'claim_notes',
+        'photo_path',
         'insurance_data',
         'daily_rate',
         'notes',
@@ -41,6 +51,11 @@ class Vehicle extends Model
             'daily_rate' => 'decimal:2',
             'year' => 'integer',
             'mileage' => 'integer',
+            'status' => VehicleStatus::class,
+            'category' => VehicleCategory::class,
+            'licensing_date' => 'date',
+            'ipva_date' => 'date',
+            'insurance_expiry' => 'date',
         ];
     }
 

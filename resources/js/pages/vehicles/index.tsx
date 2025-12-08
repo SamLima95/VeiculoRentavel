@@ -65,6 +65,15 @@ const statusColor: Record<string, string> = {
     maintenance: 'bg-amber-100 text-amber-700 ring-1 ring-amber-200',
 };
 
+const categoryLabel: Record<string, string> = {
+    compact: 'Compacto',
+    sedan: 'Sedan',
+    suv: 'SUV',
+    pickup: 'Pickup',
+    luxury: 'Luxo',
+    hatch: 'Hatch',
+};
+
 export default function VehiclesIndex({ vehicles, filters }: VehiclesPageProps) {
     const { data, setData, get, processing } = useForm({
         search: filters?.search ?? '',
@@ -178,11 +187,12 @@ export default function VehiclesIndex({ vehicles, filters }: VehiclesPageProps) 
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Categoria: Todas</SelectItem>
-                                        <SelectItem value="SUV">SUV</SelectItem>
-                                        <SelectItem value="Hatch">Hatch</SelectItem>
-                                        <SelectItem value="Sedan">Sedan</SelectItem>
-                                        <SelectItem value="Pickup">Pickup</SelectItem>
-                                        <SelectItem value="Luxo">Luxo</SelectItem>
+                                        <SelectItem value="compact">Compacto</SelectItem>
+                                        <SelectItem value="sedan">Sedan</SelectItem>
+                                        <SelectItem value="suv">SUV</SelectItem>
+                                        <SelectItem value="pickup">Pickup</SelectItem>
+                                        <SelectItem value="luxury">Luxo</SelectItem>
+                                        <SelectItem value="hatch">Hatch</SelectItem>
                                     </SelectContent>
                                 </Select>
 
@@ -245,7 +255,9 @@ export default function VehiclesIndex({ vehicles, filters }: VehiclesPageProps) 
                                                 {vehicle.brand} {vehicle.model}
                                             </TableCell>
                                             <TableCell className="text-slate-700">{vehicle.plate}</TableCell>
-                                            <TableCell className="text-slate-700">{vehicle.category ?? '—'}</TableCell>
+                                            <TableCell className="text-slate-700">
+                                                {categoryLabel[vehicle.category ?? ''] ?? vehicle.category ?? '—'}
+                                            </TableCell>
                                             <TableCell>
                                                 <span
                                                     className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${

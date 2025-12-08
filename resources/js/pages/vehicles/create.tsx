@@ -34,6 +34,7 @@ type VehicleFormProps = {
         insurance_name?: string;
         policy_number?: string;
         claim_notes?: string;
+        daily_rate?: number;
     };
 };
 
@@ -50,14 +51,15 @@ export default function VehicleForm({ vehicle }: VehicleFormProps) {
         color: vehicle?.color ?? '',
         plate: vehicle?.plate ?? '',
         mileage: vehicle?.mileage?.toString() ?? '',
-        category: vehicle?.category ?? 'Compacto',
-        status: vehicle?.status ?? 'Disponível',
+        category: vehicle?.category ?? 'compact',
+        status: vehicle?.status ?? 'available',
         renavam: vehicle?.renavam ?? '',
         licensing_date: vehicle?.licensing_date ?? '',
         ipva_date: vehicle?.ipva_date ?? '',
         insurance_name: vehicle?.insurance_name ?? '',
         policy_number: vehicle?.policy_number ?? '',
         claim_notes: vehicle?.claim_notes ?? '',
+        daily_rate: vehicle?.daily_rate?.toString() ?? '',
     });
 
     const handleSubmit = (event: FormEvent) => {
@@ -147,6 +149,15 @@ export default function VehicleForm({ vehicle }: VehicleFormProps) {
                                         onChange={(e) => setData('mileage', e.target.value)}
                                     />
                                 </Field>
+                                <Field label="Diaria (R$)" error={errors.daily_rate}>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="Ex: 199.90"
+                                        value={data.daily_rate}
+                                        onChange={(e) => setData('daily_rate', e.target.value)}
+                                    />
+                                </Field>
                                 <Field label="Categoria" error={errors.category}>
                                     <Select
                                         value={data.category}
@@ -156,11 +167,12 @@ export default function VehicleForm({ vehicle }: VehicleFormProps) {
                                             <SelectValue placeholder="Selecione" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="Compacto">Compacto</SelectItem>
-                                            <SelectItem value="Sedan">Sedan</SelectItem>
-                                            <SelectItem value="SUV">SUV</SelectItem>
-                                            <SelectItem value="Pickup">Pickup</SelectItem>
-                                            <SelectItem value="Luxo">Luxo</SelectItem>
+                                            <SelectItem value="compact">Compacto</SelectItem>
+                                            <SelectItem value="sedan">Sedan</SelectItem>
+                                            <SelectItem value="suv">SUV</SelectItem>
+                                            <SelectItem value="pickup">Pickup</SelectItem>
+                                            <SelectItem value="luxury">Luxo</SelectItem>
+                                            <SelectItem value="hatch">Hatch</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </Field>
@@ -173,9 +185,9 @@ export default function VehicleForm({ vehicle }: VehicleFormProps) {
                                             <SelectValue placeholder="Selecione" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="Disponível">Disponível</SelectItem>
-                                            <SelectItem value="Locado">Locado</SelectItem>
-                                            <SelectItem value="Manutenção">Manutenção</SelectItem>
+                                            <SelectItem value="available">Disponivel</SelectItem>
+                                            <SelectItem value="rented">Locado</SelectItem>
+                                            <SelectItem value="maintenance">Manutencao</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </Field>

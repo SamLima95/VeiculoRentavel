@@ -17,6 +17,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     // Rotas do módulo de aluguel de veículos
     Route::resource('vehicles', VehicleController::class);
+    Route::post('vehicles/{vehicle}/inactivate', [VehicleController::class, 'inactivate'])->name('vehicles.inactivate');
     Route::get('vehicles/check-plate', [VehicleController::class, 'checkPlateAvailability'])->name('vehicles.check-plate');
 
     Route::get('clients', function () {

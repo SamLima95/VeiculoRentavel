@@ -1,64 +1,80 @@
-# Backend - Modulo de Veiculos
+# Backend - Modulo de Veiculos (versao aprimorada)
 
-Guia de referencia do backend para o modulo de veiculos: como deve funcionar, regras de negocio e itens faltantes para ficar 100% funcional.
+Guia para deixar o backend do modulo de veiculos alinhado a um DDD lite, com regras de dominio claras, eventos e contratos consistentes.
 
-## Objetivo e escopo
-- CRUD completo de veiculos com validacao (placa unica, dados obrigatorios) e soft delete/inativacao.
-- Exposicao de listagem filtrada/paginada, detalhe com timeline (reservas, locacoes, manutencoes) e checagem de disponibilidade por placa.
-- Integra de forma consistente com reservas, locacoes, manutencoes e auditoria de acoes.
+## 1) Arquitetura (DDD lite)
+- VehicleService: criar/atualizar/inativar, normalizar placa, validar se pode inativar, aplicar regras de status, gerar timeline resumida, emitir eventos de auditoria.
+- VehicleRepository: concentrar consultas (findWithRelations($id), filterVehicles($filters), checkPlateAvailability($plate, $vehicleId?), latestActivities($vehicleId, $limit = 5), countersByStatus()) e evitar duplicacao em controllers.
+- VehicleStatusManager: centraliza transicoes (available/rented/maintenance), bloqueios (ex.: rented -> deleted) e erros padronizados para consumo por outros modulos.
+- VehicleResource / VehicleCollection: serializar respostas (ocultar internos, formatar labels PT, incluir stats/timeline) em vez de retornar modelos crus.
 
-## Modelo de dados proposto
-- Tabela `vehicles` (soft delete):
-  - `model`, `brand`, `year`, `color`, `plate` (unique, normalizada), `mileage`.
-  - `category` (ex: compacto, sedan, suv, pickup, luxo) e `status` (`available`, `rented`, `maintenance`).
-  - `renavam`, `licensing_date`, `ipva_date` para documentacao.
-  - Seguro: `insurance_name`, `policy_number`, `insurance_expiry` (ou `insurance_data` json), `claim_notes`.
-  - Financeiro: `daily_rate` decimal(10,2), `notes` livres.
-  - Midia: `photo_path` ou `photo_url` opcional.
-  - Indices: `status`, `category`, `plate`, `plate + deleted_at` para RN001, e campos de data usados em alertas (licensing/ipva/insurance).
-- Relacoes:
-  - `hasMany reservations`, `hasMany rentals`, `hasMany maintenances`, `hasMany fines` (se aplicavel).
-  - Auditoria via `audit_logs` (modelo já existente).
+## 2) Modelo de dominio e invariantes
+- Estados permitidos: available -> rented, available -> maintenance, maintenance -> available, rented -> available.
+- Estados proibidos: rented -> deleted, maintenance -> rented, maintenance -> deleted (enquanto ativo).
+- Invariantes:
+  - Placa unica (normalizada) e regex Mercosul.
+  - Nao excluir/inativar se houver reserva ativa (pending/confirmed) ou status rented.
+  - Nao locar se em manutencao; nao reservar se rented.
+  - Status sempre coerente com eventos externos (reserva, locacao, manutencao).
+  - Datas de documentacao/seguro com alertas se vencidas (licensing_date, ipva_date, insurance_expiry).
+- Campos core do veiculo: model, brand, year, color, plate, mileage, category, status, renavam, licensing_date, ipva_date, insurance_name, policy_number, insurance_expiry, claim_notes, daily_rate, notes, photo_path/url (opcional).
 
-## Regras de negocio e validacao
-- Placa unica (RN001), normalizada para maiusculas sem hifen/espaco; regex Mercosul (ABC1D23) ou ABC-1234.
-- Ano: inteiro entre 1900 e (ano corrente + 1); quilometragem >= 0.
-- Categorias e status devem usar o mesmo vocabulário no front e no backend (hoje o front envia textos em PT; é preciso mapear para `available/rented/maintenance`).
-- Inativacao/soft delete bloqueada se:
-  - Status `rented` (veiculo locado) ou se existir reserva ativa (`pending`, `confirmed`).
-  - Manutencao ativa deve trocar status para `maintenance` e bloquear novas reservas/locacoes no periodo.
-- Timeline: reservas/locacoes/manutencoes ordenadas por data mais recente; limitar n itens ou paginar.
-- Documentacao e seguro: alertas para datas vencidas a partir de `licensing_date`, `ipva_date`, `insurance_expiry`.
-- Preco: `daily_rate` obrigatorio; calcular estimativas em reservas/locacoes com base em tarifas/categoria.
+## 3) Eventos de dominio (recomendado)
+- Eventos: ReservationCreated, ReservationConfirmed, ReservationCancelled, RentalStarted, RentalFinished, MaintenanceOpened, MaintenanceClosed (e opcionalmente MaintenanceCancelled).
+- Listeners: UpdateVehicleStatusOnReservation, UpdateVehicleStatusOnRental, UpdateVehicleStatusOnMaintenance. Atualizam status via VehicleStatusManager e registram auditoria.
+- Beneficios: desacopla modulos, evita controllers externos manipulando veiculo diretamente, reduz inconsistencias.
 
-## Rotas e contratos HTTP (Inertia)
-- `GET /vehicles`: lista com filtros `search`, `status`, `category`, `sort_by`, `sort_order`; retorna paginacao e filtros aplicados.
-- `GET /vehicles/create` e `GET /vehicles/{id}/edit`: retornam dados do formulario (opcionalmente listas de categorias/status validos).
-- `POST /vehicles`: cria veiculo com os campos descritos em Modelo de dados; valida e normaliza placa, converte numeros.
-- `GET /vehicles/{id}`: retorna veiculo + relacoes resumidas (`reservations`, `rentals`, `maintenances`, `fines?`) e `stats` (totais).
-- `PUT /vehicles/{id}`: atualiza com validacao condicional; mantem unicidade da placa considerando soft delete.
-- `DELETE /vehicles/{id}`: inativa (soft delete) apos checar regras de bloqueio.
-- `POST /vehicles/{id}/inactivate`: rota faltante usada no front (show.tsx); deve reutilizar a mesma logica do destroy e responder com flash/message.
-- `GET /vehicles/check-plate?plate=ABC1234&vehicle_id?=`: retorna `{ available: bool, message }` para validacao em tempo real.
+## 4) Validacoes e Form Requests
+- Manter StoreVehicleRequest e UpdateVehicleRequest com:
+  - Normalizacao da placa (maiucula, remove hifen/espaco) e regex Mercosul.
+  - Unicidade considerando soft delete.
+  - daily_rate obrigatorio; mileage inteiro >= 0; year entre 1900 e ano atual + 1.
+  - category/status alinhados com enums.
+  - Foto: max size/tipo (ex.: image, max 2MB) se upload for habilitado.
+  - Conversoes numericas (mileage, daily_rate) e datas (licensing_date, ipva_date, insurance_expiry).
+- Endpoint `GET /vehicles/check-plate?plate=...&vehicle_id?=...` reutiliza a mesma normalizacao/regra.
 
-## Fluxos chave
-- **Cadastro**: validar campos, normalizar placa, criar registro, salvar diario/foto opcional, registrar auditoria, redirecionar com flash de sucesso.
-- **Edicao**: carregar dados + relacoes basicas, aplicar PUT, logar diffs na auditoria.
-- **Listagem**: aplicar filtros, paginar, calcular contadores por status para cards do front; respeitar soft deletes.
-- **Detalhe**: carregar veiculo + ultimas reservas/locacoes/manutencoes (limit 5) e estatisticas agregadas; expor status legivel para UI.
-- **Inativacao**: checar se nao ha locacao/reserva ativa; se ok, soft delete e log de auditoria; se nao, retornar erro amigavel.
-- **Checagem de disponibilidade de placa**: endpoint ja criado (`checkPlateAvailability`), mas precisa ser conectado no front ou reusado na validacao ajax.
+## 5) Enums e vocabulario
+- Definir enums PHP:
+  - VehicleStatus: available, rented, maintenance.
+  - VehicleCategory: compact, sedan, suv, pickup, luxury (ou categorias dinamicas se usar tabela).
+- Mapear para UI (labels PT) no Resource/Transformer para evitar divergencia front/back.
 
-## Itens pendentes para 100% funcional
-- Ajustar divergencias de campos entre front (renavam, licensing_date, ipva_date, seguro, claim_notes, photo) e `vehicles` no backend (fillable, migration e requests).
-- Harmonizar enums de `status` e `category` entre front e backend (hoje o request usa termos em PT enquanto o modelo usa ingles).
-- Adicionar rota/acao `vehicles/{vehicle}/inactivate` ou alinhar o front para usar `DELETE /vehicles/{id}`.
-- Implementar atualizacao de status automatica quando criar/alterar reservas, locacoes e manutencoes (ex: reserva confirmada bloqueia veiculo, manutencao agenda vira status `maintenance`, locacao ativa vira `rented`).
-- Incluir carregamento de `stats` e `fines` no `VehicleController@show` se o front for consumir.
-- Opcional: upload/armazenamento de foto do veiculo (disk `public`), com validacao de tamanho/tipo.
-- Cobrir com testes: regras de placa unica/normalizacao, bloqueios de inativacao, filtros de listagem, mapeamento de status/categorias, endpoint de checagem de placa.
+## 6) Dados e migracao
+- Tabela vehicles (soft deletes) com campos do item 2; manter indices em status, category, plate + deleted_at, licensing_date, ipva_date, insurance_expiry.
+- Indices adicionais uteis: status + category, brand + model + year.
+- Opcional: tabela de categorias (para evitar valores magicos) e tabela vehicle_media (multi-fotos).
 
-## Dependencias e seguranca
-- Rotas protegidas por `auth` e `verified` (ja aplicado).
-- Auditoria via `AuditLogService` em create/update/delete; garantir que a tabela `audit_logs` esta migrada.
-- Politicas de autorizacao podem ser adicionadas em `VehiclePolicy` para perfis (admin x operador) caso necessario.
+## 7) Coerencia entre modulos
+- Reserva criada futura: status nao muda; confirmada -> status rented (ou reservado/bloqueado se usar estado intermediario).
+- Locacao iniciada -> status rented; finalizada/cancelada -> status available.
+- Manutencao aberta -> status maintenance; concluida/cancelada -> status available.
+- Inativacao: apenas se nao houver reserva ativa nem status rented; usar VehicleService::inactivate.
+- Timeline: agregar ultimas reservas/locacoes/manutencoes (limit 5) via repositorio.
+
+## 8) Endpoints e contratos HTTP
+- `GET /vehicles`: lista filtrada/paginada; usar VehicleCollection com labels e stats agregados (countersByStatus).
+- `GET /vehicles/create|{id}/edit`: dados do form + enums/categorias validas.
+- `POST /vehicles`: cria veiculo via service + auditoria.
+- `GET /vehicles/{id}`: VehicleResource com relacoes resumidas (reservations, rentals, maintenances, fines?), stats e timeline.
+- `PUT /vehicles/{id}`: atualiza com validacao condicional; logs de auditoria (diff).
+- `DELETE /vehicles/{id}` ou `POST /vehicles/{id}/inactivate`: usa a mesma regra de inativacao.
+- `GET /vehicles/check-plate`: validacao em tempo real.
+
+## 9) Testes (cobertura de dominio)
+- Invariantes: nao inativar rented ou com reserva ativa; placa unica normalizada.
+- Transicoes de status: manutencao aberta -> maintenance; manutencao fechada -> available; locacao iniciada -> rented; locacao encerrada -> available.
+- Eventos: listeners atualizam status; reserva futura nao altera status; reserva confirmada altera.
+- Filtros/performance: search + category + status com paginacao (soft delete respeitado); ordenacao multi-campos.
+- Requests: validacao de foto (quando habilitado), regex da placa, limites de year/mileage/daily_rate.
+- Resources: garantir que campos internos nao vazem e labels estao corretos.
+
+## 10) Performance e observabilidade
+- Indices compostos (status+category, brand+model+year, datas de alerta) e eager loading controlado (paginate + with counts).
+- Counters agregados (available/rented/maintenance) calculados via query unica.
+- Logs/auditoria ja prontos; adicionar metricas de tempo de resposta nas consultas criticas se usar APM.
+
+## 11) Documentacao e integracao
+- Manter doc de contratos (VehicleResource/Collection) e eventos em linha com front.
+- Atualizar pages-overview/Pages quando novos status ou campos forem expostos.
+- Descrever politicas (VehiclePolicy) se perfis diferentes precisarem de permissoes no modulo.

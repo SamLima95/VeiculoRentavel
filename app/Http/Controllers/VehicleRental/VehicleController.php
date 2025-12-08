@@ -5,8 +5,11 @@ namespace App\Http\Controllers\VehicleRental;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreVehicleRequest;
 use App\Http\Requests\UpdateVehicleRequest;
+use App\Http\Resources\VehicleResource;
 use App\Models\Vehicle;
-use App\Services\AuditLogService;
+use App\Repositories\VehicleRepository;
+use App\Services\VehicleService;
+use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,39 +17,19 @@ use Inertia\Response;
 
 class VehicleController extends Controller
 {
+    public function __construct(
+        private readonly VehicleRepository $vehicles,
+        private readonly VehicleService $service
+    ) {
+    }
+
     /**
      * Exibe a lista de veículos.
      */
     public function index(Request $request): Response
     {
-        $query = Vehicle::query();
-
-        // Busca
-        if ($request->has('search') && $request->search) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('model', 'like', "%{$search}%")
-                  ->orWhere('brand', 'like', "%{$search}%")
-                  ->orWhere('plate', 'like', "%{$search}%");
-            });
-        }
-
-        // Filtro por status
-        if ($request->has('status') && $request->status !== 'all') {
-            $query->where('status', $request->status);
-        }
-
-        // Filtro por categoria
-        if ($request->has('category') && $request->category) {
-            $query->where('category', $request->category);
-        }
-
-        // Ordenação
-        $sortBy = $request->get('sort_by', 'created_at');
-        $sortOrder = $request->get('sort_order', 'desc');
-        $query->orderBy($sortBy, $sortOrder);
-
-        $vehicles = $query->paginate(15)->withQueryString();
+        $vehicles = $this->vehicles->filterVehicles($request->all())
+            ->through(fn ($vehicle) => VehicleResource::make($vehicle)->resolve());
 
         return Inertia::render('vehicles/index', [
             'vehicles' => $vehicles,
@@ -67,13 +50,7 @@ class VehicleController extends Controller
      */
     public function store(StoreVehicleRequest $request): RedirectResponse
     {
-        $vehicle = Vehicle::create($request->validated());
-
-        // Log de auditoria
-        AuditLogService::logCreated(
-            $vehicle,
-            "Veículo {$vehicle->brand} {$vehicle->model} (Placa: {$vehicle->plate}) criado"
-        );
+        $this->service->create($request->validated());
 
         return redirect()->route('vehicles.index')
             ->with('success', 'Veículo cadastrado com sucesso!');
@@ -84,20 +61,12 @@ class VehicleController extends Controller
      */
     public function show(Vehicle $vehicle): Response
     {
-        $vehicle->load([
-            'reservations' => function ($query) {
-                $query->latest()->limit(5);
-            },
-            'rentals' => function ($query) {
-                $query->latest()->limit(5);
-            },
-            'maintenances' => function ($query) {
-                $query->latest()->limit(5);
-            },
-        ]);
+        $vehicleResource = VehicleResource::make(
+            $this->vehicles->findWithRelations($vehicle->id)
+        );
 
         return Inertia::render('vehicles/show', [
-            'vehicle' => $vehicle,
+            'vehicle' => $vehicleResource,
         ]);
     }
 
@@ -107,7 +76,7 @@ class VehicleController extends Controller
     public function edit(Vehicle $vehicle): Response
     {
         return Inertia::render('vehicles/create', [
-            'vehicle' => $vehicle,
+            'vehicle' => VehicleResource::make($vehicle),
         ]);
     }
 
@@ -116,16 +85,7 @@ class VehicleController extends Controller
      */
     public function update(UpdateVehicleRequest $request, Vehicle $vehicle): RedirectResponse
     {
-        $oldValues = $vehicle->getAttributes();
-
-        $vehicle->update($request->validated());
-
-        // Log de auditoria
-        AuditLogService::logUpdated(
-            $vehicle,
-            $oldValues,
-            "Veículo {$vehicle->brand} {$vehicle->model} (Placa: {$vehicle->plate}) atualizado"
-        );
+        $this->service->update($vehicle, $request->validated());
 
         return redirect()->route('vehicles.index')
             ->with('success', 'Veículo atualizado com sucesso!');
@@ -136,33 +96,23 @@ class VehicleController extends Controller
      */
     public function destroy(Vehicle $vehicle): RedirectResponse
     {
-        // Validar se o veículo pode ser inativado
-        if ($vehicle->isRented()) {
+        try {
+            $this->service->inactivate($vehicle);
+        } catch (DomainException $e) {
             return redirect()->route('vehicles.index')
-                ->with('error', 'Não é possível inativar um veículo que está locado.');
+                ->with('error', $e->getMessage());
         }
-
-        // Verificar se há reservas ativas
-        $hasActiveReservations = $vehicle->reservations()
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->exists();
-
-        if ($hasActiveReservations) {
-            return redirect()->route('vehicles.index')
-                ->with('error', 'Não é possível inativar um veículo com reservas ativas.');
-        }
-
-        // Soft delete
-        $vehicle->delete();
-
-        // Log de auditoria
-        AuditLogService::logDeleted(
-            $vehicle,
-            "Veículo {$vehicle->brand} {$vehicle->model} (Placa: {$vehicle->plate}) inativado"
-        );
 
         return redirect()->route('vehicles.index')
             ->with('success', 'Veículo inativado com sucesso!');
+    }
+
+    /**
+     * Rota auxiliar para inativar via POST (usada pelo front).
+     */
+    public function inactivate(Vehicle $vehicle): RedirectResponse
+    {
+        return $this->destroy($vehicle);
     }
 
     /**
@@ -175,22 +125,14 @@ class VehicleController extends Controller
             'vehicle_id' => ['nullable', 'integer', 'exists:vehicles,id'],
         ]);
 
-        $plate = $request->input('plate');
+        $plate = (string) $request->input('plate');
         $vehicleId = $request->input('vehicle_id');
 
-        $normalizedPlate = strtoupper(str_replace([' ', '-'], '', $plate));
-
-        $query = Vehicle::where('plate', $normalizedPlate);
-
-        if ($vehicleId) {
-            $query->where('id', '!=', $vehicleId);
-        }
-
-        $exists = $query->exists();
+        $available = $this->service->checkPlateAvailability($plate, $vehicleId);
 
         return response()->json([
-            'available' => !$exists,
-            'message' => $exists ? 'Esta placa já está cadastrada' : 'Placa disponível',
+            'available' => $available,
+            'message' => $available ? 'Placa disponível' : 'Esta placa já está cadastrada',
         ]);
     }
 }
