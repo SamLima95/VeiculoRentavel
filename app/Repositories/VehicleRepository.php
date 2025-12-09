@@ -41,7 +41,7 @@ class VehicleRepository
 
     public function findWithRelations(int $vehicleId): Vehicle
     {
-        return Vehicle::with([
+        $vehicle = Vehicle::with([
             'reservations' => function ($query) {
                 $query->latest()->limit(5);
             },
@@ -52,6 +52,10 @@ class VehicleRepository
                 $query->latest()->limit(5);
             },
         ])->findOrFail($vehicleId);
+
+        $vehicle->stats = $this->getStats($vehicle);
+
+        return $vehicle;
     }
 
     public function checkPlateAvailability(string $plate, ?int $vehicleId = null): bool
@@ -80,5 +84,21 @@ class VehicleRepository
             ->groupBy('status')
             ->pluck('total', 'status')
             ->toArray();
+    }
+
+    public function getStats(Vehicle $vehicle): array
+    {
+        $rentals = method_exists($vehicle, 'rentals') ? $vehicle->rentals() : null;
+        $maintenances = method_exists($vehicle, 'maintenances') ? $vehicle->maintenances() : null;
+        $fines = method_exists($vehicle, 'fines') ? $vehicle->fines() : null;
+
+        return [
+            'total_rentals' => $rentals ? (int) $rentals->count() : 0,
+            'rentals_this_year' => $rentals
+                ? (int) $rentals->whereYear('created_at', date('Y'))->count()
+                : 0,
+            'maintenances' => $maintenances ? (int) $maintenances->count() : 0,
+            'fines' => $fines ? (int) $fines->count() : 0,
+        ];
     }
 }

@@ -1,10 +1,13 @@
 <?php
 
+use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\FinancialEntryController;
+use App\Http\Controllers\RentalController;
+use App\Http\Controllers\ReservationController;
+use App\Http\Controllers\VehicleRental\ClientController;
+use App\Http\Controllers\VehicleRental\VehicleController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use App\Http\Controllers\VehicleRental\DashboardController;
-use App\Http\Controllers\VehicleRental\VehicleController;
-use App\Http\Controllers\VehicleRental\ClientController;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
@@ -14,12 +17,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
         return Inertia::render('dashboard');
     })->name('dashboard');
-    
-    // Rotas do módulo de aluguel de veículos
+
+    // Veiculos
     Route::resource('vehicles', VehicleController::class);
     Route::post('vehicles/{vehicle}/inactivate', [VehicleController::class, 'inactivate'])->name('vehicles.inactivate');
     Route::get('vehicles/check-plate', [VehicleController::class, 'checkPlateAvailability'])->name('vehicles.check-plate');
 
+    // Clientes (placeholders)
     Route::get('clients', function () {
         return Inertia::render('clients', [
             'clients' => [
@@ -39,6 +43,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('clients/create');
     })->name('clients.create');
 
+    // Manutencao (placeholders)
     Route::get('vehicles/maintenance', function () {
         return Inertia::render('vehicles/maintenance', [
             'maintenances' => [
@@ -78,69 +83,39 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ]);
     })->name('vehicles.maintenance.edit');
 
-    Route::get('reservations', function () {
-        return Inertia::render('reservations', [
-            'reservations' => [
-                'data' => [],
-                'current_page' => 1,
-                'last_page' => 1,
-                'per_page' => 10,
-                'total' => 0,
-                'from' => 0,
-                'to' => 0,
-                'links' => [],
-            ],
-        ]);
-    })->name('reservations');
+    // Reservas
+    Route::get('reservations', [ReservationController::class, 'index'])->name('reservations');
+    Route::get('reservations/create', [ReservationController::class, 'create'])->name('reservations.create');
+    Route::post('reservations', [ReservationController::class, 'store'])->name('reservations.store');
+    Route::get('reservations/{reservation}', [ReservationController::class, 'show'])->name('reservations.show');
+    Route::get('reservations/{reservation}/edit', [ReservationController::class, 'edit'])->name('reservations.edit');
+    Route::put('reservations/{reservation}', [ReservationController::class, 'update'])->name('reservations.update');
+    Route::delete('reservations/{reservation}', [ReservationController::class, 'destroy'])->name('reservations.destroy');
+    Route::post('reservations/{reservation}/confirm', [ReservationController::class, 'confirm'])->name('reservations.confirm');
+    Route::post('reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
+    Route::post('reservations/{reservation}/convert-to-rental', [ReservationController::class, 'convertToRental'])->name('reservations.convert-to-rental');
+    Route::get('reservations/check-availability', [ReservationController::class, 'checkAvailability'])->name('reservations.check-availability');
 
-    Route::get('reservations/create', function () {
-        return Inertia::render('reservations/create', [
-            'vehicles' => [],
-            'clients' => [],
-        ]);
-    })->name('reservations.create');
+    // Locacoes
+    Route::get('rentals', [RentalController::class, 'index'])->name('rentals');
+    Route::get('rentals/create', [RentalController::class, 'create'])->name('rentals.create');
+    Route::post('rentals', [RentalController::class, 'store'])->name('rentals.store');
+    Route::get('rentals/{rental}', [RentalController::class, 'show'])->name('rentals.show');
+    Route::post('rentals/{rental}/check-out', [RentalController::class, 'checkOut'])->name('rentals.check-out');
+    Route::post('rentals/{rental}/cancel', [RentalController::class, 'cancel'])->name('rentals.cancel');
+    Route::post('rentals/{rental}/damage-report', [RentalController::class, 'damageReport'])->name('rentals.damage-report');
+    Route::post('rentals/from-reservation', [RentalController::class, 'fromReservation'])->name('rentals.from-reservation');
 
-    Route::get('rentals', function () {
-        return Inertia::render('rentals', [
-            'rentals' => [
-                'data' => [],
-                'current_page' => 1,
-                'last_page' => 1,
-                'per_page' => 10,
-                'total' => 0,
-                'from' => 0,
-                'to' => 0,
-                'links' => [],
-            ],
-            'stats' => [
-                'in_progress' => 0,
-                'overdue' => 0,
-                'finished_month' => 0,
-                'revenue_estimated' => 0,
-            ],
-        ]);
-    })->name('rentals');
+    Route::prefix('finance')->name('finance.')->group(function () {
+        Route::get('/', [FinanceController::class, 'index'])->name('index');
 
-    Route::get('rentals/check-in', function () {
-        return Inertia::render('rentals/check-in', [
-            'reservation' => [
-                'client' => 'João da Silva',
-                'vehicle' => 'Volkswagen Nivus',
-                'plate' => 'ABC-1234',
-                'period' => '13/10/2024 - 15/10/2024',
-                'category' => 'SUV Compacto',
-                'image' => 'https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?w=900',
-            ],
-        ]);
-    })->name('rentals.checkin');
-
-    Route::get('rentals/check-out', function () {
-        return Inertia::render('rentals/check-out');
-    })->name('rentals.checkout');
-
-    Route::get('finance', function () {
-        return Inertia::render('finance');
-    })->name('finance');
+        Route::get('/entries', [FinancialEntryController::class, 'index'])->name('entries.index');
+        Route::post('/entries', [FinancialEntryController::class, 'store'])->name('entries.store');
+        Route::get('/entries/{entry}', [FinancialEntryController::class, 'show'])->name('entries.show');
+        Route::put('/entries/{entry}', [FinancialEntryController::class, 'update'])->name('entries.update');
+        Route::post('/entries/{entry}/pay', [FinancialEntryController::class, 'pay'])->name('entries.pay');
+        Route::post('/entries/{entry}/cancel', [FinancialEntryController::class, 'cancel'])->name('entries.cancel');
+    });
 
     Route::get('admin', function () {
         return Inertia::render('admin');
@@ -183,7 +158,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'promotions' => [
                 [
                     'id' => 1,
-                    'title' => 'Promoção de Verão',
+                    'title' => 'Promocao de Verao',
                     'active' => true,
                     'discount' => '15% OFF',
                     'period' => '01/12/2024 a 31/01/2025',

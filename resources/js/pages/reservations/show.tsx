@@ -8,27 +8,31 @@ import { AlertTriangle, CalendarClock, CarFront, CheckCircle2, Clock, MapPin, Us
 
 type Reservation = {
     id: number;
-    client_name: string;
-    client_document?: string;
-    vehicle: string;
-    plate?: string;
+    client?: {
+        id: number;
+        name?: string;
+        document?: string;
+    };
+    vehicle?: {
+        id: number;
+        model?: string;
+        brand?: string;
+        plate?: string;
+    };
     start_date: string;
     end_date: string;
-    status: 'confirmed' | 'pending' | 'canceled' | string;
-    amount_estimated?: string;
+    status: 'confirmed' | 'pending' | 'cancelled' | 'completed' | string;
+    status_label?: string;
+    estimated_value?: number | string | null;
     notes?: string;
-};
-
-const statusLabel: Record<string, string> = {
-    confirmed: 'Confirmada',
-    pending: 'Pendente',
-    canceled: 'Cancelada',
+    source_label?: string;
 };
 
 const statusChip: Record<string, string> = {
     confirmed: 'bg-blue-100 text-blue-700 ring-1 ring-blue-200',
     pending: 'bg-amber-100 text-amber-700 ring-1 ring-amber-200',
-    canceled: 'bg-red-100 text-red-700 ring-1 ring-red-200',
+    cancelled: 'bg-red-100 text-red-700 ring-1 ring-red-200',
+    completed: 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200',
 };
 
 type ReservationShowProps = {
@@ -64,10 +68,8 @@ export default function ReservationShow({ reservation }: ReservationShowProps) {
                     <div className="space-y-1">
                         <h1 className="text-xl font-semibold text-slate-900">Reserva #{reservation.id}</h1>
                         <p className="text-sm text-slate-600">Acompanhe status e dados desta reserva.</p>
-                        <Badge
-                            className={`${statusChip[reservation.status] ?? 'bg-slate-100 text-slate-700'} px-3 py-1 text-[13px] font-semibold`}
-                        >
-                            {statusLabel[reservation.status] ?? reservation.status}
+                        <Badge className={`${statusChip[reservation.status] ?? 'bg-slate-100 text-slate-700'} px-3 py-1 text-[13px] font-semibold`}>
+                            {reservation.status_label ?? reservation.status}
                         </Badge>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -105,13 +107,15 @@ export default function ReservationShow({ reservation }: ReservationShowProps) {
                                 <InfoItem
                                     icon={<UserRound className="h-4 w-4 text-blue-600" />}
                                     label="Cliente"
-                                    value={reservation.client_name}
-                                    helper={reservation.client_document}
+                                    value={reservation.client?.name ?? '—'}
+                                    helper={reservation.client?.document}
                                 />
                                 <InfoItem
                                     icon={<CarFront className="h-4 w-4 text-emerald-600" />}
                                     label="Veiculo"
-                                    value={`${reservation.vehicle}${reservation.plate ? ` (${reservation.plate})` : ''}`}
+                                    value={`${reservation.vehicle?.brand ?? ''} ${reservation.vehicle?.model ?? ''}${
+                                        reservation.vehicle?.plate ? ` (${reservation.vehicle?.plate})` : ''
+                                    }`}
                                 />
                                 <InfoItem
                                     icon={<CalendarClock className="h-4 w-4 text-indigo-600" />}
@@ -121,21 +125,34 @@ export default function ReservationShow({ reservation }: ReservationShowProps) {
                                 <InfoItem
                                     icon={<Clock className="h-4 w-4 text-amber-600" />}
                                     label="Status"
-                                    value={statusLabel[reservation.status] ?? reservation.status}
-                                    helper={
-                                        reservation.status === 'pending'
-                                            ? 'Pendente de confirmacao'
-                                            : reservation.status === 'confirmed'
-                                                ? 'Bloqueia o veiculo no periodo'
-                                                : 'Reserva cancelada'
+                                    value={reservation.status_label ?? reservation.status}
+                                />
+                                <InfoItem
+                                    icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+                                    label="Valor estimado"
+                                    value={
+                                        reservation.estimated_value
+                                            ? new Intl.NumberFormat('pt-BR', {
+                                                  style: 'currency',
+                                                  currency: 'BRL',
+                                              }).format(Number(reservation.estimated_value))
+                                            : '—'
                                     }
+                                />
+                                <InfoItem
+                                    icon={<MapPin className="h-4 w-4 text-slate-600" />}
+                                    label="Origem"
+                                    value={reservation.source_label ?? '—'}
                                 />
                             </div>
 
-                            {reservation.amount_estimated && (
-                                <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-800 ring-1 ring-slate-200">
-                                    <p className="font-semibold text-slate-900">Estimativa</p>
-                                    <p>{reservation.amount_estimated}</p>
+                            {reservation.notes && (
+                                <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-amber-200 flex items-start gap-2">
+                                    <AlertTriangle className="h-4 w-4 mt-1" />
+                                    <div>
+                                        <p className="font-semibold">Observacoes</p>
+                                        <p>{reservation.notes}</p>
+                                    </div>
                                 </div>
                             )}
 
@@ -160,7 +177,7 @@ export default function ReservationShow({ reservation }: ReservationShowProps) {
                         <CardContent className="space-y-3 text-sm text-slate-700">
                             <Step label="Confirmar reserva para bloquear o veiculo." done={reservation.status === 'confirmed'} />
                             <Step label="Converter em locacao no balcão (check-in)." done={false} />
-                            <Step label="Caso não utilizada, cancelar para liberar o veiculo." done={reservation.status === 'canceled'} />
+                            <Step label="Caso não utilizada, cancelar para liberar o veiculo." done={reservation.status === 'cancelled'} />
                         </CardContent>
                     </Card>
                 </div>

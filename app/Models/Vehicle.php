@@ -84,6 +84,14 @@ class Vehicle extends Model
     }
 
     /**
+     * Relacionamento: Bloqueios de agenda do veA­culo.
+     */
+    public function scheduleBlocks()
+    {
+        return $this->hasMany(VehicleScheduleBlock::class);
+    }
+
+    /**
      * Scope: Apenas veículos disponíveis.
      */
     public function scopeAvailable($query)

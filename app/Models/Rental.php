@@ -2,168 +2,244 @@
 
 namespace App\Models;
 
+use App\Enums\FuelPolicy;
+use App\Enums\RentalStatus;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Carbon\Carbon;
 
 class Rental extends Model
 {
     use HasFactory;
 
-    /**
-     * Os atributos que podem ser atribuídos em massa.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'reservation_id',
         'vehicle_id',
         'client_id',
         'user_id',
         'pickup_date',
+        'planned_return_date',
         'return_date',
-        'pickup_odometer',
-        'return_odometer',
+        'odometer_pickup',
+        'odometer_return',
+        'fuel_pickup',
+        'fuel_return',
         'initial_status',
         'return_status',
+        'photos_pickup',
+        'photos_return',
+        'checklist_pickup',
+        'checklist_return',
+        'damage_notes',
         'total_days',
         'allowed_km_per_day',
         'daily_rate',
         'extra_km',
         'extra_km_rate',
-        'late_fee',
-        'fines',
+        'late_fee_rate',
+        'late_fee_total',
+        'cleaning_fee',
+        'fuel_policy',
+        'fuel_charge',
+        'damage_cost',
+        'extra_charges',
+        'discounts',
         'subtotal',
         'total',
         'status',
         'notes',
+        'created_by',
+        'updated_by',
     ];
 
-    /**
-     * Os atributos que devem ser convertidos.
-     *
-     * @var array<string, string>
-     */
     protected function casts(): array
     {
         return [
             'pickup_date' => 'datetime',
+            'planned_return_date' => 'datetime',
             'return_date' => 'datetime',
             'daily_rate' => 'decimal:2',
             'extra_km_rate' => 'decimal:2',
-            'late_fee' => 'decimal:2',
-            'fines' => 'decimal:2',
+            'late_fee_rate' => 'decimal:2',
+            'late_fee_total' => 'decimal:2',
+            'cleaning_fee' => 'decimal:2',
             'subtotal' => 'decimal:2',
             'total' => 'decimal:2',
             'total_days' => 'integer',
             'allowed_km_per_day' => 'integer',
             'extra_km' => 'integer',
-            'pickup_odometer' => 'integer',
-            'return_odometer' => 'integer',
+            'odometer_pickup' => 'integer',
+            'odometer_return' => 'integer',
+            'fuel_pickup' => 'decimal:2',
+            'fuel_return' => 'decimal:2',
+            'fuel_charge' => 'decimal:2',
+            'damage_cost' => 'decimal:2',
+            'extra_charges' => 'decimal:2',
+            'discounts' => 'decimal:2',
+            'photos_pickup' => 'array',
+            'photos_return' => 'array',
+            'checklist_pickup' => 'array',
+            'checklist_return' => 'array',
+            'fuel_policy' => FuelPolicy::class,
+            'status' => RentalStatus::class,
         ];
     }
 
-    /**
-     * Relacionamento: Uma locação pertence a uma reserva.
-     */
     public function reservation()
     {
         return $this->belongsTo(Reservation::class);
     }
 
-    /**
-     * Relacionamento: Uma locação pertence a um veículo.
-     */
     public function vehicle()
     {
         return $this->belongsTo(Vehicle::class);
     }
 
-    /**
-     * Relacionamento: Uma locação pertence a um cliente.
-     */
     public function client()
     {
         return $this->belongsTo(Client::class);
     }
 
-    /**
-     * Relacionamento: Uma locação pertence a um usuário.
-     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+
     /**
-     * Calcula a quilometragem extra baseada nos KM permitidos por dia.
+     * Calculates total days rounding every 24h block up.
+     */
+    public function calculateTotalDays(): int
+    {
+        $start = $this->pickup_date ? Carbon::parse($this->pickup_date) : null;
+        $end = $this->return_date
+            ? Carbon::parse($this->return_date)
+            : ($this->planned_return_date ? Carbon::parse($this->planned_return_date) : null);
+
+        if (!$start || !$end) {
+            return max(1, (int) $this->total_days);
+        }
+
+        $minutes = max(0, $start->diffInMinutes($end));
+
+        return max(1, (int) ceil($minutes / (60 * 24)));
+    }
+
+    /**
+     * Calculates extra kilometers considering allowed_km_per_day.
      */
     public function calculateExtraKm(): int
     {
-        if (!$this->return_odometer || !$this->pickup_odometer) {
+        if ($this->odometer_return === null || $this->odometer_pickup === null) {
             return 0;
         }
 
-        $totalKm = $this->return_odometer - $this->pickup_odometer;
-        $allowedKm = $this->total_days * $this->allowed_km_per_day;
-        $extraKm = max(0, $totalKm - $allowedKm);
+        $totalKm = $this->odometer_return - $this->odometer_pickup;
+        $allowedKm = $this->calculateTotalDays() * $this->allowed_km_per_day;
 
-        return $extraKm;
+        return max(0, $totalKm - $allowedKm);
     }
 
     /**
-     * Calcula a multa por atraso baseada na data de devolução esperada.
+     * Calculates late fee using planned return date.
      */
     public function calculateLateFee(?Carbon $expectedReturnDate = null): float
     {
+        $expectedReturnDate = $expectedReturnDate
+            ? Carbon::parse($expectedReturnDate)
+            : ($this->planned_return_date ? Carbon::parse($this->planned_return_date) : null);
+
         if (!$this->return_date || !$expectedReturnDate) {
-            return 0;
+            return 0.0;
         }
 
-        if ($this->return_date->gt($expectedReturnDate)) {
-            // Atraso em dias
-            $daysLate = $this->return_date->diffInDays($expectedReturnDate);
-            // Multa por dia de atraso (pode ser configurável)
-            $lateFeePerDay = $this->daily_rate * 0.5; // 50% da diária por dia de atraso
-            return $daysLate * $lateFeePerDay;
+        $returnDate = Carbon::parse($this->return_date);
+        if ($returnDate->lte($expectedReturnDate)) {
+            return 0.0;
         }
 
-        return 0;
+        $minutesLate = $expectedReturnDate->diffInMinutes($returnDate);
+        $daysLate = (int) ceil($minutesLate / (60 * 24));
+
+        return $daysLate * (float) $this->late_fee_rate;
     }
 
     /**
-     * Calcula o subtotal (diárias + km extra).
+     * Subtotal = daily total + extra km charges.
      */
     public function calculateSubtotal(): float
     {
-        $dailyTotal = $this->total_days * $this->daily_rate;
-        $extraKmTotal = $this->extra_km * $this->extra_km_rate;
-        
-        return $dailyTotal + $extraKmTotal;
+        $days = $this->calculateTotalDays();
+        $extraKm = $this->extra_km ?: $this->calculateExtraKm();
+
+        $dailyTotal = $days * (float) $this->daily_rate;
+        $extraKmTotal = $extraKm * (float) $this->extra_km_rate;
+
+        return round($dailyTotal + $extraKmTotal, 2);
     }
 
     /**
-     * Calcula o valor total (subtotal + multas + taxas).
+     * Calculates fuel charge when tank needs refill.
+     */
+    public function calculateFuelCharge(float $tankCapacity, float $fuelPrice): float
+    {
+        if ($tankCapacity <= 0 || $fuelPrice <= 0) {
+            return 0.0;
+        }
+
+        if ($this->fuel_pickup === null || $this->fuel_return === null) {
+            return 0.0;
+        }
+
+        $missingFraction = max(0, (float) $this->fuel_pickup - (float) $this->fuel_return);
+        if ($missingFraction <= 0) {
+            return 0.0;
+        }
+
+        $litersMissing = $tankCapacity * $missingFraction;
+
+        return round($litersMissing * $fuelPrice, 2);
+    }
+
+    /**
+     * Calculates grand total including extras and discounts.
      */
     public function calculateTotal(): float
     {
         $subtotal = $this->calculateSubtotal();
-        return max(0, $subtotal + $this->late_fee + $this->fines);
+        $lateFee = $this->late_fee_total ?: $this->calculateLateFee();
+
+        $total = $subtotal
+            + $lateFee
+            + (float) $this->cleaning_fee
+            + (float) $this->fuel_charge
+            + (float) $this->damage_cost
+            + (float) $this->extra_charges
+            - (float) $this->discounts;
+
+        return max(0, round($total, 2));
     }
 
-    /**
-     * Verifica se a locação está ativa.
-     */
     public function isActive(): bool
     {
-        return $this->status === 'active';
+        $status = $this->status instanceof RentalStatus ? $this->status->value : $this->status;
+
+        return $status === RentalStatus::ACTIVE->value;
     }
 
-    /**
-     * Verifica se a locação foi finalizada.
-     */
     public function isCompleted(): bool
     {
-        return $this->status === 'completed';
+        $status = $this->status instanceof RentalStatus ? $this->status->value : $this->status;
+
+        return $status === RentalStatus::COMPLETED->value;
     }
 }

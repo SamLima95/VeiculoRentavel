@@ -18,6 +18,7 @@ class VehicleStatusManager
         ],
         VehicleStatus::RENTED->value => [
             VehicleStatus::AVAILABLE->value,
+            VehicleStatus::MAINTENANCE->value,
         ],
         VehicleStatus::MAINTENANCE->value => [
             VehicleStatus::AVAILABLE->value,

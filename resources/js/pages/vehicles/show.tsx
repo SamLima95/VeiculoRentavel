@@ -2,7 +2,6 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import {
-    AlertCircle,
     AlertTriangle,
     ArrowLeft,
     BadgeCheck,
@@ -46,15 +45,25 @@ type Vehicle = {
     plate?: string;
     mileage?: number;
     category?: string;
+    category_label?: string;
     status?: string;
-    insurance_data?: Record<string, unknown> | null;
+    status_label?: string;
+    renavam?: string | null;
+    licensing_date?: string | null;
+    ipva_date?: string | null;
+    insurance_name?: string | null;
+    policy_number?: string | null;
+    insurance_expiry?: string | null;
+    claim_notes?: string | null;
     daily_rate?: string | number | null;
     notes?: string | null;
+    insurance_data?: Record<string, unknown> | null;
     reservations?: RelatedItem[];
     rentals?: RelatedItem[];
     maintenances?: RelatedItem[];
     fines?: RelatedItem[];
     photo_url?: string | null;
+    photo_path?: string | null;
     stats?: {
         total_rentals?: number;
         rentals_this_year?: number;
@@ -77,15 +86,24 @@ type TimelineItem = {
 };
 
 const statusLabel: Record<string, string> = {
-    available: 'Disponível',
+    available: 'Disponivel',
     rented: 'Locado',
-    maintenance: 'Em Manutenção',
+    maintenance: 'Em Manutencao',
 };
 
 const statusColor: Record<string, string> = {
     available: 'bg-green-100 text-green-700',
     rented: 'bg-blue-100 text-blue-700',
     maintenance: 'bg-amber-100 text-amber-700',
+};
+
+const categoryLabel: Record<string, string> = {
+    compact: 'Compacto',
+    sedan: 'Sedan',
+    suv: 'SUV',
+    pickup: 'Pickup',
+    luxury: 'Luxo',
+    hatch: 'Hatch',
 };
 
 const formatDate = (value?: string) => {
@@ -101,9 +119,20 @@ const formatDate = (value?: string) => {
     }).format(parsed);
 };
 
+const formatDateOnly = (value?: string) => {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    }).format(parsed);
+};
+
 export default function VehicleShow({ vehicle }: VehicleShowProps) {
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Veículos', href: '/vehicles' },
+        { title: 'Veiculos', href: '/vehicles' },
         { title: `${vehicle.brand ?? ''} ${vehicle.model ?? ''}`.trim(), href: `/vehicles/${vehicle.id}` },
     ];
 
@@ -116,7 +145,7 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
         const rentals =
             vehicle.rentals?.map((r) => ({
                 id: `rental-${r.id}`,
-                title: 'Locação Concluída',
+                title: 'Locacao concluida',
                 date: normalizeDate(r),
                 description: r.description || r.notes || `Status: ${r.status ?? '—'}`,
                 kind: 'rental' as const,
@@ -126,7 +155,7 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
         const reservations =
             vehicle.reservations?.map((r) => ({
                 id: `reservation-${r.id}`,
-                title: 'Reserva Criada',
+                title: 'Reserva criada',
                 date: normalizeDate(r),
                 description: r.description || r.notes || `Status: ${r.status ?? '—'}`,
                 kind: 'reservation' as const,
@@ -135,7 +164,7 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
         const maintenances =
             vehicle.maintenances?.map((m) => ({
                 id: `maintenance-${m.id}`,
-                title: 'Manutenção Preventiva',
+                title: 'Manutencao',
                 date: normalizeDate(m),
                 description: m.description || m.notes || `Status: ${m.status ?? '—'}`,
                 kind: 'maintenance' as const,
@@ -145,7 +174,7 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
         const fines =
             vehicle.fines?.map((f) => ({
                 id: `fine-${f.id}`,
-                title: 'Multa Registrada',
+                title: 'Multa registrada',
                 date: normalizeDate(f),
                 description: f.description || f.notes || `Status: ${f.status ?? '—'}`,
                 kind: 'fine' as const,
@@ -166,16 +195,16 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={`Veículo - ${vehicle.brand ?? ''} ${vehicle.model ?? ''}`} />
+            <Head title={`Veiculo - ${vehicle.brand ?? ''} ${vehicle.model ?? ''}`} />
 
             <div className="-mx-4 bg-[#f4f7fb] px-4 py-6 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
                 <div className="space-y-6">
                     <div className="rounded-xl border border-slate-200 bg-white px-4 py-5 shadow-sm sm:px-6">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <h1 className="text-xl font-semibold text-slate-900">Detalhes do Veículo</h1>
+                                <h1 className="text-xl font-semibold text-slate-900">Detalhes do Veiculo</h1>
                                 <p className="text-sm text-slate-600">
-                                    {vehicle.brand} {vehicle.model} • Placa {vehicle.plate ?? '—'}
+                                    {vehicle.brand} {vehicle.model} · Placa {vehicle.plate ?? '—'}
                                 </p>
                             </div>
                             <div className="flex flex-wrap gap-2">
@@ -223,11 +252,13 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
                                 />
                                 <span
                                     className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                                        statusColor[vehicle.status ?? 'available'] ??
-                                        'bg-slate-100 text-slate-700'
+                                        statusColor[vehicle.status ?? 'available'] ?? 'bg-slate-100 text-slate-700'
                                     }`}
                                 >
-                                    {statusLabel[vehicle.status ?? 'available'] ?? vehicle.status ?? 'Disponível'}
+                                    {vehicle.status_label ??
+                                        statusLabel[vehicle.status ?? 'available'] ??
+                                        vehicle.status ??
+                                        'Disponivel'}
                                 </span>
                             </div>
 
@@ -240,18 +271,31 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
                                     <div className="mt-3 grid gap-2 text-sm text-slate-800">
                                         <InfoRow
                                             icon={<CalendarDays className="h-4 w-4 text-blue-600" />}
-                                            label="Ano/Modelo"
-                                            value={`${vehicle.year ?? '—'} • ${vehicle.color ?? '—'}`}
+                                            label="Ano"
+                                            value={vehicle.year ?? '—'}
                                         />
                                         <InfoRow
                                             icon={<Navigation className="h-4 w-4 text-emerald-600" />}
                                             label="Categoria"
-                                            value={vehicle.category ?? '—'}
+                                            value={
+                                                vehicle.category_label ??
+                                                categoryLabel[vehicle.category ?? ''] ??
+                                                vehicle.category ??
+                                                '—'
+                                            }
                                         />
                                         <InfoRow
                                             icon={<ShieldCheck className="h-4 w-4 text-amber-600" />}
                                             label="Seguro"
-                                            value={vehicle.insurance_data ? 'Apólice registrada' : '—'}
+                                            value={
+                                                vehicle.insurance_name
+                                                    ? `${vehicle.insurance_name}${
+                                                          vehicle.insurance_expiry
+                                                              ? ` · vence ${formatDateOnly(vehicle.insurance_expiry)}`
+                                                              : ''
+                                                      }`
+                                                    : '—'
+                                            }
                                         />
                                     </div>
                                 </div>
@@ -269,13 +313,49 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
                                         />
                                         <InfoRow
                                             icon={<CreditCard className="h-4 w-4 text-emerald-600" />}
-                                            label="Documentação"
-                                            value="Válida até 12/2024"
+                                            label="Licenciamento/IPVA"
+                                            value={
+                                                vehicle.licensing_date || vehicle.ipva_date
+                                                    ? `Licenciamento: ${formatDateOnly(
+                                                          vehicle.licensing_date || undefined,
+                                                      )} · IPVA: ${formatDateOnly(vehicle.ipva_date || undefined)}`
+                                                    : '—'
+                                            }
                                         />
                                         <InfoRow
                                             icon={<MapPin className="h-4 w-4 text-amber-600" />}
                                             label="Placa"
                                             value={vehicle.plate ?? '—'}
+                                        />
+                                        <InfoRow
+                                            icon={<CarFront className="h-4 w-4 text-slate-600" />}
+                                            label="Renavam"
+                                            value={vehicle.renavam ?? '—'}
+                                        />
+                                        <InfoRow
+                                            icon={<CreditCard className="h-4 w-4 text-blue-600" />}
+                                            label="Apólice"
+                                            value={
+                                                vehicle.policy_number
+                                                    ? `${vehicle.policy_number}${
+                                                          vehicle.insurance_expiry
+                                                              ? ` · ${formatDateOnly(vehicle.insurance_expiry)}`
+                                                              : ''
+                                                      }`
+                                                    : '—'
+                                            }
+                                        />
+                                        <InfoRow
+                                            icon={<BadgeCheck className="h-4 w-4 text-emerald-600" />}
+                                            label="Diaria"
+                                            value={
+                                                vehicle.daily_rate
+                                                    ? new Intl.NumberFormat('pt-BR', {
+                                                          style: 'currency',
+                                                          currency: 'BRL',
+                                                      }).format(Number(vehicle.daily_rate))
+                                                    : '—'
+                                            }
                                         />
                                     </div>
                                 </div>
@@ -284,9 +364,9 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <StatCard label="Total de locações" value={vehicle.stats?.total_rentals ?? 0} />
+                        <StatCard label="Total de locacoes" value={vehicle.stats?.total_rentals ?? 0} />
                         <StatCard label="Dias locados no ano" value={vehicle.stats?.rentals_this_year ?? 0} />
-                        <StatCard label="Manutenções" value={vehicle.stats?.maintenances ?? 0} />
+                        <StatCard label="Manutencoes" value={vehicle.stats?.maintenances ?? 0} />
                         <StatCard label="Multas registradas" value={vehicle.stats?.fines ?? 0} />
                     </div>
 
@@ -294,10 +374,10 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
                         <CardHeader className="flex flex-col gap-2 pb-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <CardTitle className="text-base font-semibold text-slate-900">
-                                    Timeline do Veículo
+                                    Timeline do Veiculo
                                 </CardTitle>
                                 <p className="text-sm text-slate-600">
-                                    Histórico recente de reservas, locações, manutenções e multas.
+                                    Historico recente de reservas, locacoes, manutencoes e multas.
                                 </p>
                             </div>
                             <div className="flex flex-wrap gap-2 text-sm font-semibold text-slate-700">
@@ -305,10 +385,10 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
                                     Reservas
                                 </Badge>
                                 <Badge variant="outline" className="rounded-full border-slate-200 bg-slate-50">
-                                    Locações
+                                    Locacoes
                                 </Badge>
                                 <Badge variant="outline" className="rounded-full border-slate-200 bg-slate-50">
-                                    Manutenções
+                                    Manutencoes
                                 </Badge>
                                 <Badge variant="outline" className="rounded-full border-slate-200 bg-slate-50">
                                     Multas
@@ -344,7 +424,7 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
                                                 </Badge>
                                             </div>
                                             <p className="mt-1 text-sm text-slate-700">
-                                                {item.description || 'Sem descrição.'}
+                                                {item.description || 'Sem descricao.'}
                                             </p>
                                             {item.amount && (
                                                 <p className="text-sm font-semibold text-emerald-600">
@@ -366,7 +446,7 @@ export default function VehicleShow({ vehicle }: VehicleShowProps) {
                         >
                             <Link href="/vehicles">
                                 <ArrowLeft className="mr-2 h-4 w-4" />
-                                Voltar para listagem de veículos
+                                Voltar para listagem de veiculos
                             </Link>
                         </Button>
                     </div>

@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Enums\ReservationStatus;
+use App\Enums\ReservationSource;
 
 class Reservation extends Model
 {
@@ -21,6 +23,10 @@ class Reservation extends Model
         'start_date',
         'end_date',
         'status',
+        'estimated_value',
+        'source',
+        'created_by',
+        'updated_by',
         'notes',
     ];
 
@@ -34,6 +40,9 @@ class Reservation extends Model
         return [
             'start_date' => 'datetime',
             'end_date' => 'datetime',
+            'status' => ReservationStatus::class,
+            'source' => ReservationSource::class,
+            'estimated_value' => 'decimal:2',
         ];
     }
 
@@ -59,6 +68,16 @@ class Reservation extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     /**

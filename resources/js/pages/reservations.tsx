@@ -12,12 +12,13 @@ import { type ReactNode, useMemo, useState } from 'react';
 
 type Reservation = {
     id: number;
-    client_name: string;
-    vehicle: string;
-    plate?: string;
+    client?: { name?: string; document?: string };
+    vehicle?: { brand?: string; model?: string; plate?: string };
     start_date: string;
     end_date: string;
-    status: 'confirmed' | 'pending' | 'canceled' | string;
+    status: 'confirmed' | 'pending' | 'cancelled' | 'completed' | string;
+    status_label?: string;
+    estimated_value?: number | string | null;
 };
 
 type ReservationsPageProps = {
@@ -48,13 +49,15 @@ const breadcrumbs: BreadcrumbItem[] = [{ title: 'Reservas', href: '/reservations
 const statusLabel: Record<string, string> = {
     confirmed: 'Confirmada',
     pending: 'Pendente',
-    canceled: 'Cancelada',
+    cancelled: 'Cancelada',
+    completed: 'Concluida',
 };
 
 const statusChip: Record<string, string> = {
     confirmed: 'bg-blue-100 text-blue-700 ring-1 ring-blue-200',
     pending: 'bg-amber-100 text-amber-700 ring-1 ring-amber-200',
-    canceled: 'bg-red-100 text-red-700 ring-1 ring-red-200',
+    cancelled: 'bg-red-100 text-red-700 ring-1 ring-red-200',
+    completed: 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200',
 };
 
 export default function ReservationsPage({ reservations, filters, stats }: ReservationsPageProps) {
@@ -67,7 +70,7 @@ export default function ReservationsPage({ reservations, filters, stats }: Reser
     const summary = {
         confirmed: stats?.confirmed_month ?? 0,
         pending: stats?.pending ?? 0,
-        canceled: stats?.canceled ?? 0,
+        cancelled: stats?.canceled ?? 0,
         occupancy: stats?.occupancy_rate ?? 0,
     };
 
@@ -211,11 +214,11 @@ export default function ReservationsPage({ reservations, filters, stats }: Reser
                                                 {(reservations?.data ?? []).map((reservation) => (
                                                     <TableRow key={reservation.id} className="hover:bg-slate-50">
                                                         <TableCell className="font-semibold text-slate-900">
-                                                            {reservation.client_name}
+                                                            {reservation.client?.name ?? '—'}
                                                         </TableCell>
                                                         <TableCell className="text-slate-700">
-                                                            {reservation.vehicle}
-                                                            {reservation.plate ? ` (${reservation.plate})` : ''}
+                                                            {(reservation.vehicle?.brand ?? '') + ' ' + (reservation.vehicle?.model ?? '')}
+                                                            {reservation.vehicle?.plate ? ` (${reservation.vehicle?.plate})` : ''}
                                                         </TableCell>
                                                         <TableCell className="text-slate-700">
                                                             {reservation.start_date} - {reservation.end_date}
@@ -227,7 +230,7 @@ export default function ReservationsPage({ reservations, filters, stats }: Reser
                                                                     'bg-slate-100 text-slate-700'
                                                                 }`}
                                                             >
-                                                                {statusLabel[reservation.status] ?? reservation.status}
+                                                                {reservation.status_label ?? reservation.status}
                                                             </span>
                                                         </TableCell>
                                                         <TableCell className="text-right text-sm font-semibold text-[#2f62de]">

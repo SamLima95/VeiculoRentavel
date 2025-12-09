@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Reservas', href: '/reservations' },
@@ -49,8 +49,8 @@ type ReservationCreateProps = {
 
 export default function ReservationCreate({ vehicles = [], clients = [] }: ReservationCreateProps) {
     const { data, setData, post, processing } = useForm({
-        start_at: '',
-        end_at: '',
+        start_date: '',
+        end_date: '',
         vehicle_id: vehicles[0]?.id ?? null,
         client_id: clients[0]?.id ?? null,
     });
@@ -100,32 +100,45 @@ export default function ReservationCreate({ vehicles = [], clients = [] }: Reser
                                 <Field label="Data e Hora de Retirada">
                                     <Input
                                         type="datetime-local"
-                                        value={data.start_at}
-                                        onChange={(e) => setData('start_at', e.target.value)}
+                                        value={data.start_date}
+                                        onChange={(e) => setData('start_date', e.target.value)}
                                     />
                                 </Field>
                                 <Field label="Data e Hora de Devolução">
                                     <Input
                                         type="datetime-local"
-                                        value={data.end_at}
-                                        onChange={(e) => setData('end_at', e.target.value)}
+                                        value={data.end_date}
+                                        onChange={(e) => setData('end_date', e.target.value)}
                                         className="aria-invalid:border-red-300"
                                         aria-invalid={
-                                            !!data.start_at &&
-                                            !!data.end_at &&
-                                            new Date(data.end_at) <= new Date(data.start_at)
+                                            !!data.start_date &&
+                                            !!data.end_date &&
+                                            new Date(data.end_date) <= new Date(data.start_date)
                                         }
                                     />
                                 </Field>
                             </div>
-                            {data.start_at &&
-                                data.end_at &&
-                                new Date(data.end_at) <= new Date(data.start_at) && (
+                            {data.start_date &&
+                                data.end_date &&
+                                new Date(data.end_date) <= new Date(data.start_date) && (
                                     <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                                         <Info className="h-4 w-4" />
                                         Período inválido. A data de devolução não pode ser anterior à data de retirada.
                                     </div>
                                 )}
+                            <div className="mt-3 flex items-center gap-2">
+                                <Button type="button" variant="secondary" onClick={checkAvailability} disabled={processing}>
+                                    Verificar disponibilidade
+                                </Button>
+                                {availability && (
+                                    <Badge
+                                        className={availability.available ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}
+                                    >
+                                        {availability.available ? "Dispon?vel" : "Indispon?vel"}
+                                        {availability.price_estimate ? ` ? Estimado R$ ${availability.price_estimate}` : ""}
+                                    </Badge>
+                                )}
+                            </div>
                         </Section>
 
                         {/* 2. Veículos Disponíveis */}
