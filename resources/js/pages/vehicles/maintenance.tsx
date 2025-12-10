@@ -242,7 +242,7 @@ export default function MaintenancePage({ maintenances, filters }: MaintenancePa
                                                     <img
                                                         src={
                                                             item.vehicle.photo_url ??
-                                                            'https://via.placeholder.com/48x48?text=Car'
+                                                            'https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?w=700'
                                                         }
                                                         alt={item.vehicle.model}
                                                         className="h-12 w-12 rounded-lg object-cover ring-1 ring-slate-200"
@@ -269,17 +269,16 @@ export default function MaintenancePage({ maintenances, filters }: MaintenancePa
                                             <TableCell className="text-slate-700">
                                                 {item.cost
                                                     ? Intl.NumberFormat('pt-BR', {
-                                                          style: 'currency',
-                                                          currency: 'BRL',
-                                                      }).format(item.cost)
+                                                        style: 'currency',
+                                                        currency: 'BRL',
+                                                    }).format(item.cost)
                                                     : '—'}
                                             </TableCell>
                                             <TableCell>
                                                 <span
-                                                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                                                        statusChip[item.status ?? 'pending'] ??
+                                                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusChip[item.status ?? 'pending'] ??
                                                         'bg-slate-100 text-slate-700'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {statusLabel[item.status ?? 'pending'] ?? item.status}
                                                 </span>

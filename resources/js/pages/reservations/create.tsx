@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import axios from 'axios';
 import { type ReactNode, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -57,6 +58,26 @@ export default function ReservationCreate({ vehicles = [], clients = [] }: Reser
 
     const selectedVehicle = vehicles.find((v) => v.id === data.vehicle_id);
     const selectedClient = clients.find((c) => c.id === data.client_id);
+    const [availability, setAvailability] = useState<any>(null);
+
+    const checkAvailability = async () => {
+        if (!data.start_date || !data.end_date || !data.vehicle_id) {
+            return;
+        }
+
+        try {
+            const response = await axios.get(route('reservations.check-availability'), {
+                params: {
+                    vehicle_id: data.vehicle_id,
+                    start_date: data.start_date,
+                    end_date: data.end_date,
+                }
+            });
+            setAvailability(response.data);
+        } catch (error) {
+            console.error(error);
+        }
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -153,7 +174,7 @@ export default function ReservationCreate({ vehicles = [], clients = [] }: Reser
                                     <Input
                                         placeholder="Buscar por placa ou modelo..."
                                         className="h-10 pl-10"
-                                        // TODO: hook up search filter
+                                    // TODO: hook up search filter
                                     />
                                 </div>
                                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -162,11 +183,10 @@ export default function ReservationCreate({ vehicles = [], clients = [] }: Reser
                                             type="button"
                                             key={vehicle.id}
                                             onClick={() => setData('vehicle_id', vehicle.id)}
-                                            className={`flex flex-col gap-3 rounded-xl border p-3 text-left shadow-sm transition-[border,box-shadow] hover:shadow-md ${
-                                                data.vehicle_id === vehicle.id
-                                                    ? 'border-[#2f62de] ring-2 ring-[#2f62de]/20'
-                                                    : 'border-slate-200'
-                                            }`}
+                                            className={`flex flex-col gap-3 rounded-xl border p-3 text-left shadow-sm transition-[border,box-shadow] hover:shadow-md ${data.vehicle_id === vehicle.id
+                                                ? 'border-[#2f62de] ring-2 ring-[#2f62de]/20'
+                                                : 'border-slate-200'
+                                                }`}
                                         >
                                             <img
                                                 src={
@@ -189,11 +209,10 @@ export default function ReservationCreate({ vehicles = [], clients = [] }: Reser
                                             </div>
                                             <div className="flex items-center justify-between text-xs">
                                                 <Badge
-                                                    className={`rounded-full ${
-                                                        vehicle.status === 'available'
-                                                            ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200'
-                                                            : 'bg-slate-200 text-slate-700'
-                                                    }`}
+                                                    className={`rounded-full ${vehicle.status === 'available'
+                                                        ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200'
+                                                        : 'bg-slate-200 text-slate-700'
+                                                        }`}
                                                 >
                                                     {vehicle.status === 'available'
                                                         ? 'Disponível'
@@ -222,7 +241,7 @@ export default function ReservationCreate({ vehicles = [], clients = [] }: Reser
                                         <Input
                                             placeholder="Buscar cliente por nome ou CPF"
                                             className="h-10 pl-10"
-                                            // TODO: hook up search filter
+                                        // TODO: hook up search filter
                                         />
                                     </div>
                                     <Button

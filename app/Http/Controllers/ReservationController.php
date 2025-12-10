@@ -42,7 +42,26 @@ class ReservationController extends Controller
     public function create(): Response
     {
         return Inertia::render('reservations/create', [
-            // TODO: popular veiculos disponiveis e clientes conforme filtros
+            'vehicles' => Vehicle::where('status', 'available')
+                ->orWhere('status', 'maintenance') // Include maintenance for visibility but maybe disabled
+                ->get()
+                ->map(fn ($v) => [
+                    'id' => $v->id,
+                    'title' => $v->model . ' ' . $v->brand,
+                    'plate' => $v->plate,
+                    'category' => $v->category, // Assuming category exists or use logic
+                    'mileage' => $v->mileage . ' km',
+                    'price' => 'R$ ' . number_format($v->daily_rate, 2, ',', '.'),
+                    'image' => $v->image, // Ensure this exists or handle null in frontend
+                    'status' => $v->status,
+                ]),
+            'clients' => \App\Models\Client::all()->map(fn ($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'cpf' => $c->cpf,
+                'phone' => $c->phone,
+                'status' => 'ok', // Placeholder logic
+            ]),
         ]);
     }
 

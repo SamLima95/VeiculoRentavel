@@ -245,7 +245,7 @@ export default function VehiclesIndex({ vehicles, filters }: VehiclesPageProps) 
                                                 <img
                                                     src={
                                                         vehicle.photo_url ??
-                                                        'https://via.placeholder.com/48x48?text=Car'
+                                                        'https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?w=700'
                                                     }
                                                     alt={`${vehicle.model}`}
                                                     className="h-12 w-12 rounded-full object-cover ring-1 ring-slate-200"
@@ -260,9 +260,8 @@ export default function VehiclesIndex({ vehicles, filters }: VehiclesPageProps) 
                                             </TableCell>
                                             <TableCell>
                                                 <span
-                                                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                                                        statusColor[vehicle.status] ?? 'bg-slate-100 text-slate-700'
-                                                    }`}
+                                                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusColor[vehicle.status] ?? 'bg-slate-100 text-slate-700'
+                                                        }`}
                                                 >
                                                     {statusLabel[vehicle.status] ?? vehicle.status}
                                                 </span>
@@ -362,11 +361,10 @@ function PageLink({
     return (
         <Link
             href={href}
-            className={`flex h-8 w-8 items-center justify-center rounded-md border text-sm ${
-                active
+            className={`flex h-8 w-8 items-center justify-center rounded-md border text-sm ${active
                     ? 'border-[#2f62de] bg-[#2f62de] text-white'
                     : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-            }`}
+                }`}
             aria-label={ariaLabel}
         >
             {children}
