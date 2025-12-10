@@ -1,7 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,15 +9,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Calendar, Eye, KeyRound, Search } from 'lucide-react';
 import { type ReactNode } from 'react';
 
+type ClientRef = { id: number; name?: string; document?: string };
+type VehicleRef = { id: number; model?: string; brand?: string; plate?: string; status?: string };
+
 type Rental = {
     id: number;
-    client: string;
-    vehicle: string;
-    plate?: string;
-    start_date: string;
-    end_date: string;
-    status: 'in_progress' | 'overdue' | 'finished' | string;
-    amount?: number;
+    client?: ClientRef;
+    vehicle?: VehicleRef;
+    pickup_date?: string;
+    planned_return_date?: string;
+    return_date?: string;
+    status: string;
+    status_label?: string;
+    total?: number | string;
+    daily_rate?: number | string;
 };
 
 type RentalsPageProps = {
@@ -44,23 +48,30 @@ type RentalsPageProps = {
         finished_month?: number;
         revenue_estimated?: number;
     };
+    counters?: Record<string, number>;
 };
 
-const breadcrumbs: BreadcrumbItem[] = [{ title: 'Locações', href: '/rentals' }];
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Locacoes', href: '/rentals' }];
 
 const statusLabel: Record<string, string> = {
+    active: 'Ativa',
+    completed: 'Concluida',
+    cancelled: 'Cancelada',
     in_progress: 'Em andamento',
     overdue: 'Atrasada',
     finished: 'Finalizada',
 };
 
 const statusChip: Record<string, string> = {
+    active: 'bg-blue-100 text-blue-700 ring-1 ring-blue-200',
+    completed: 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200',
+    cancelled: 'bg-slate-100 text-slate-700 ring-1 ring-slate-200',
     in_progress: 'bg-blue-100 text-blue-700 ring-1 ring-blue-200',
     overdue: 'bg-red-100 text-red-700 ring-1 ring-red-200',
     finished: 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200',
 };
 
-export default function RentalsPage({ rentals, filters, stats }: RentalsPageProps) {
+export default function RentalsPage({ rentals, filters, stats, counters }: RentalsPageProps) {
     const { data, setData, get, processing } = useForm({
         status: filters?.status ?? 'all',
         client: filters?.client ?? '',
@@ -69,9 +80,9 @@ export default function RentalsPage({ rentals, filters, stats }: RentalsPageProp
     });
 
     const summary = {
-        inProgress: stats?.in_progress ?? 0,
-        overdue: stats?.overdue ?? 0,
-        finished: stats?.finished_month ?? 0,
+        inProgress: counters?.active ?? stats?.in_progress ?? 0,
+        overdue: counters?.cancelled ?? stats?.overdue ?? 0,
+        finished: counters?.completed ?? stats?.finished_month ?? 0,
         revenue: stats?.revenue_estimated ?? 0,
     };
 
@@ -94,29 +105,29 @@ export default function RentalsPage({ rentals, filters, stats }: RentalsPageProp
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Locações" />
+            <Head title="Locacoes" />
 
             <div className="-mx-4 bg-[#f4f7fb] px-4 py-6 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
                 <div className="space-y-5">
                     <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
                         <div>
-                            <h1 className="text-xl font-semibold text-slate-900">Locações</h1>
+                            <h1 className="text-xl font-semibold text-slate-900">Locacoes</h1>
                             <p className="text-sm text-slate-600">
-                                Gerencie todas as locações ativas, atrasadas e finalizadas.
+                                Gerencie todas as locacoes ativas, atrasadas e finalizadas.
                             </p>
                         </div>
                         <Link
                             href="/rentals/create"
                             className="inline-flex items-center rounded-md bg-[#1f56d8] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(33,101,214,0.35)] transition-colors hover:bg-[#1c4cc5]"
                         >
-                            + Nova Locação
+                            + Nova Locacao
                         </Link>
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <StatCard label="Em andamento" value={summary.inProgress} />
                         <StatCard label="Atrasadas" value={summary.overdue} />
-                        <StatCard label="Finalizadas (mês)" value={summary.finished} />
+                        <StatCard label="Finalizadas (mes)" value={summary.finished} />
                         <StatCard
                             label="Receita estimada"
                             value={
@@ -142,9 +153,9 @@ export default function RentalsPage({ rentals, filters, stats }: RentalsPageProp
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Todos</SelectItem>
-                                        <SelectItem value="in_progress">Em andamento</SelectItem>
-                                        <SelectItem value="overdue">Atrasada</SelectItem>
-                                        <SelectItem value="finished">Finalizada</SelectItem>
+                                        <SelectItem value="active">Ativa</SelectItem>
+                                        <SelectItem value="completed">Concluida</SelectItem>
+                                        <SelectItem value="cancelled">Cancelada</SelectItem>
                                     </SelectContent>
                                 </Select>
 
@@ -204,68 +215,76 @@ export default function RentalsPage({ rentals, filters, stats }: RentalsPageProp
                                     <TableHeader>
                                         <TableRow className="bg-slate-50">
                                             <TableHead>Cliente</TableHead>
-                                            <TableHead>Veículo</TableHead>
-                                            <TableHead>Período</TableHead>
+                                            <TableHead>Veiculo</TableHead>
+                                            <TableHead>Periodo</TableHead>
                                             <TableHead>Status</TableHead>
                                             <TableHead>Valor</TableHead>
-                                            <TableHead className="text-right">Ações</TableHead>
+                                            <TableHead className="text-right">Acoes</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {rentals?.data?.map((rental) => (
-                                            <TableRow key={rental.id} className="hover:bg-slate-50">
-                                                <TableCell className="font-semibold text-slate-900">
-                                                    {rental.client}
-                                                </TableCell>
-                                                <TableCell className="text-slate-700">
-                                                    {rental.vehicle}
-                                                    {rental.plate ? ` (${rental.plate})` : ''}
-                                                </TableCell>
-                                                <TableCell className="text-slate-700">
-                                                    {rental.start_date} - {rental.end_date}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span
-                                                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                                                            statusChip[rental.status] ??
-                                                            'bg-slate-100 text-slate-700'
-                                                        }`}
-                                                    >
-                                                        {statusLabel[rental.status] ?? rental.status}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell className="text-slate-800">
-                                                    {rental.amount
-                                                        ? Intl.NumberFormat('pt-BR', {
-                                                              style: 'currency',
-                                                              currency: 'BRL',
-                                                          }).format(rental.amount)
-                                                        : '—'}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex justify-end gap-3 text-slate-600">
-                                                        <button
-                                                            type="button"
-                                                            className="rounded-full p-1 hover:bg-slate-100"
-                                                            aria-label="Registrar devolução"
+                                        {rentals?.data?.map((rental) => {
+                                            const clientName = rental.client?.name ?? rental.client?.document ?? '-';
+                                            const vehicleName = rental.vehicle
+                                                ? `${rental.vehicle.model ?? rental.vehicle.brand ?? 'Veiculo'}${
+                                                      rental.vehicle.plate ? ` (${rental.vehicle.plate})` : ''
+                                                  }`
+                                                : '-';
+                                            const period =
+                                                rental.pickup_date && rental.planned_return_date
+                                                    ? `${rental.pickup_date} - ${rental.planned_return_date}`
+                                                    : '-';
+                                            const statusText = rental.status_label ?? statusLabel[rental.status] ?? rental.status;
+                                            const statusClass =
+                                                statusChip[rental.status] ?? 'bg-slate-100 text-slate-700';
+                                            const amount = rental.total ?? rental.daily_rate;
+                                            const parsedAmount = typeof amount === 'string' ? Number(amount) : amount;
+                                            const amountText =
+                                                amount !== undefined && parsedAmount !== undefined && !Number.isNaN(parsedAmount)
+                                                    ? Intl.NumberFormat('pt-BR', {
+                                                          style: 'currency',
+                                                          currency: 'BRL',
+                                                      }).format(parsedAmount)
+                                                    : amount ?? '-';
+
+                                            return (
+                                                <TableRow key={rental.id} className="hover:bg-slate-50">
+                                                    <TableCell className="font-semibold text-slate-900">{clientName}</TableCell>
+                                                    <TableCell className="text-slate-700">{vehicleName}</TableCell>
+                                                    <TableCell className="text-slate-700">{period}</TableCell>
+                                                    <TableCell>
+                                                        <span
+                                                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusClass}`}
                                                         >
-                                                            <KeyRound className="h-4 w-4" />
-                                                        </button>
-                                                    <Link
-                                                        href={`/rentals/${rental.id}`}
-                                                        className="rounded-full p-1 hover:bg-slate-100"
-                                                    >
-                                                        <Eye className="h-4 w-4" />
-                                                    </Link>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                                            {statusText}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="text-slate-800">{amountText}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end gap-3 text-slate-600">
+                                                            <button
+                                                                type="button"
+                                                                className="rounded-full p-1 hover:bg-slate-100"
+                                                                aria-label="Registrar devolucao"
+                                                            >
+                                                                <KeyRound className="h-4 w-4" />
+                                                            </button>
+                                                            <Link
+                                                                href={`/rentals/${rental.id}`}
+                                                                className="rounded-full p-1 hover:bg-slate-100"
+                                                            >
+                                                                <Eye className="h-4 w-4" />
+                                                            </Link>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
 
                                         {rentals?.data?.length === 0 && (
                                             <TableRow>
                                                 <TableCell colSpan={6} className="py-6 text-center text-slate-600">
-                                                    Nenhuma locação encontrada.
+                                                    Nenhuma locacao encontrada.
                                                 </TableCell>
                                             </TableRow>
                                         )}
@@ -286,7 +305,7 @@ export default function RentalsPage({ rentals, filters, stats }: RentalsPageProp
                                     </Link>
                                     <Link
                                         className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50"
-                                        href={findLink(rentals?.links, 'Próximo') ?? '#'}
+                                        href={findLink(rentals?.links, 'Proximo') ?? '#'}
                                     >
                                         &gt;
                                     </Link>
@@ -313,5 +332,8 @@ function findLink(
     links: { url: string | null; label: string; active: boolean }[] | undefined,
     labelText: string,
 ): string | null {
-    return links?.find((l) => l.label?.toLowerCase().includes(labelText.toLowerCase()))?.url ?? null;
+    const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const target = normalize(labelText);
+
+    return links?.find((l) => (l.label ? normalize(l.label).includes(target) : false))?.url ?? null;
 }

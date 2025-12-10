@@ -5,28 +5,36 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, CalendarClock, CarFront, CheckCircle2, Clock, Gauge, MapPin, UserRound } from 'lucide-react';
+import { type ReactNode } from 'react';
 
 type Rental = {
     id: number;
-    client: string;
-    vehicle: string;
-    plate?: string;
-    start_date: string;
-    end_date: string;
-    status: 'in_progress' | 'overdue' | 'finished' | string;
-    amount?: string;
-    mileage_start?: string;
-    mileage_end?: string;
+    client?: { id: number; name?: string; document?: string };
+    vehicle?: { id: number; model?: string; brand?: string; plate?: string };
+    pickup_date?: string;
+    planned_return_date?: string;
+    return_date?: string;
+    status: string;
+    status_label?: string;
+    total?: number | string;
+    odometer_pickup?: number | string;
+    odometer_return?: number | string;
     notes?: string;
 };
 
 const statusLabel: Record<string, string> = {
+    active: 'Ativa',
+    completed: 'Concluida',
+    cancelled: 'Cancelada',
     in_progress: 'Em andamento',
     overdue: 'Atrasada',
     finished: 'Finalizada',
 };
 
 const statusChip: Record<string, string> = {
+    active: 'bg-blue-100 text-blue-700 ring-1 ring-blue-200',
+    completed: 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200',
+    cancelled: 'bg-slate-100 text-slate-700 ring-1 ring-slate-200',
     in_progress: 'bg-blue-100 text-blue-700 ring-1 ring-blue-200',
     overdue: 'bg-red-100 text-red-700 ring-1 ring-red-200',
     finished: 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200',
@@ -53,6 +61,23 @@ export default function RentalShow({ rental }: RentalShowProps) {
         post(`/rentals/${rental.id}/finish`, { preserveScroll: true, preserveState: true });
     };
 
+    const clientName = rental.client?.name ?? rental.client?.document ?? '-';
+    const vehicleName = rental.vehicle
+        ? `${rental.vehicle.model ?? rental.vehicle.brand ?? 'Veiculo'}${
+              rental.vehicle.plate ? ` (${rental.vehicle.plate})` : ''
+          }`
+        : '-';
+    const period =
+        rental.pickup_date && (rental.return_date ?? rental.planned_return_date)
+            ? `${rental.pickup_date} - ${rental.return_date ?? rental.planned_return_date}`
+            : '-';
+    const mileage =
+        rental.odometer_pickup !== undefined || rental.odometer_return !== undefined
+            ? `${rental.odometer_pickup ?? '-'} km -> ${rental.odometer_return ?? '-'} km`
+            : '-';
+    const statusText = rental.status_label ?? statusLabel[rental.status] ?? rental.status;
+    const statusClass = statusChip[rental.status] ?? 'bg-slate-100 text-slate-700';
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Locacao #${rental.id}`} />
@@ -62,8 +87,8 @@ export default function RentalShow({ rental }: RentalShowProps) {
                     <div className="space-y-1">
                         <h1 className="text-xl font-semibold text-slate-900">Locacao #{rental.id}</h1>
                         <p className="text-sm text-slate-600">Acompanhe o contrato em andamento.</p>
-                        <Badge className={`${statusChip[rental.status] ?? 'bg-slate-100 text-slate-700'} px-3 py-1 text-[13px] font-semibold`}>
-                            {statusLabel[rental.status] ?? rental.status}
+                        <Badge className={`${statusClass} px-3 py-1 text-[13px] font-semibold`}>
+                            {statusText}
                         </Badge>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -101,36 +126,32 @@ export default function RentalShow({ rental }: RentalShowProps) {
                                 <InfoRow
                                     icon={<UserRound className="h-4 w-4 text-blue-600" />}
                                     label="Cliente"
-                                    value={rental.client}
+                                    value={clientName}
                                 />
                                 <InfoRow
                                     icon={<CarFront className="h-4 w-4 text-emerald-600" />}
                                     label="Veiculo"
-                                    value={`${rental.vehicle}${rental.plate ? ` (${rental.plate})` : ''}`}
+                                    value={vehicleName}
                                 />
                                 <InfoRow
                                     icon={<CalendarClock className="h-4 w-4 text-indigo-600" />}
                                     label="Periodo"
-                                    value={`${rental.start_date} - ${rental.end_date}`}
+                                    value={period}
                                 />
                                 <InfoRow
                                     icon={<Gauge className="h-4 w-4 text-amber-600" />}
                                     label="Quilometragem"
-                                    value={
-                                        rental.mileage_start
-                                            ? `${rental.mileage_start ?? '-'} km -> ${rental.mileage_end ?? '-'} km`
-                                            : '-'
-                                    }
+                                    value={mileage}
                                 />
                                 <InfoRow
                                     icon={<Clock className="h-4 w-4 text-slate-600" />}
                                     label="Status"
-                                    value={statusLabel[rental.status] ?? rental.status}
+                                    value={statusText}
                                 />
                                 <InfoRow
                                     icon={<MapPin className="h-4 w-4 text-slate-600" />}
                                     label="Valor"
-                                    value={rental.amount ?? '-'}
+                                    value={formatCurrency(rental.total)}
                                 />
                             </div>
 
@@ -164,14 +185,21 @@ export default function RentalShow({ rental }: RentalShowProps) {
     );
 }
 
+function formatCurrency(value?: number | string) {
+    if (value === undefined || value === null) return '-';
+    const parsed = typeof value === 'string' ? Number(value) : value;
+    if (parsed === undefined || Number.isNaN(parsed)) return String(value);
+    return Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parsed);
+}
+
 function InfoRow({
     icon,
     label,
     value,
 }: {
-    icon: React.ReactNode;
+    icon: ReactNode;
     label: string;
-    value?: React.ReactNode;
+    value?: ReactNode;
 }) {
     return (
         <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
